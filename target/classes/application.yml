@@ -1,0 +1,233 @@
+# ============================================================
+# Insurance Integration Middleware - Application Configuration
+# ============================================================
+#
+# IMPORTANT: Never commit real credentials.
+# Override using environment variables or .env file.
+# ============================================================
+
+spring:
+  application:
+    name: insurance-integration-middleware
+
+  # ========================
+  # DATABASE
+  # ========================
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/insurance_integration}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: InsuranceIntegrationPool
+
+  # ========================
+  # JPA
+  # ========================
+  jpa:
+    hibernate:
+      ddl-auto: validate      # Flyway manages schema — never allow Hibernate to alter it
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_schema: public
+        jdbc:
+          time_zone: UTC
+
+  # ========================
+  # FLYWAY
+  # ========================
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+    clean-disabled: true      # Never allow Flyway clean in any environment
+
+  # ========================
+  # JACKSON
+  # ========================
+  jackson:
+    default-property-inclusion: NON_NULL
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+    time-zone: UTC
+
+  # ========================
+  # MVC
+  # ========================
+  mvc:
+    pathmatch:
+      use-suffix-pattern: false
+
+# ========================
+# SERVER
+# ========================
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never    # Never expose raw error messages
+    include-stacktrace: never
+    include-binding-errors: never
+  compression:
+    enabled: true
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+
+# ========================
+# ACTUATOR
+# ========================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: when-authorized
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: Insurance Integration Middleware
+    version: 1.0.0
+    description: Cross-Account AWS Document Transfer Platform
+
+# ========================
+# SPRINGDOC / SWAGGER
+# ========================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    display-request-duration: true
+
+# ========================
+# LOGGING
+# ========================
+logging:
+  level:
+    root: INFO
+    com.insurance.integration: DEBUG
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    org.flywaydb: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId:-}] [%X{partnerId:-}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId:-}] [%X{partnerId:-}] %logger{36} - %msg%n"
+
+# ========================
+# AWS
+# ========================
+aws:
+  region: ${AWS_REGION:us-east-1}
+  endpoint-override: ${AWS_ENDPOINT_OVERRIDE:}  # Set to http://localhost:4566 for LocalStack
+  use-localstack: ${AWS_USE_LOCALSTACK:false}
+
+  sqs:
+    document-transfer-queue-url: ${SQS_DOCUMENT_TRANSFER_QUEUE_URL:}
+    dead-letter-queue-url: ${SQS_DLQ_URL:}
+    max-messages-per-poll: 10
+    wait-time-seconds: 20
+
+  sns:
+    platform-topic-arn: ${SNS_PLATFORM_TOPIC_ARN:}
+
+# ========================
+# APPLICATION SETTINGS
+# ========================
+app:
+  security:
+    jwt-secret: ${JWT_SECRET:REPLACE_THIS_WITH_A_SECURE_256_BIT_SECRET_IN_PRODUCTION}
+    jwt-expiry-seconds: ${JWT_EXPIRY_SECONDS:3600}
+    admin-token-expiry-seconds: ${ADMIN_JWT_EXPIRY_SECONDS:86400}
+
+  document:
+    max-size-mb: ${DOC_MAX_SIZE_MB:50}
+    presigned-url-expiry-buffer-seconds: ${PRESIGNED_URL_BUFFER_SECONDS:30}
+    allowed-mime-types:
+      - application/pdf
+      - image/jpeg
+      - image/jpg
+      - image/png
+      - image/tiff
+
+  transfer:
+    max-retries: ${TRANSFER_MAX_RETRIES:3}
+    retry-delay-seconds: ${TRANSFER_RETRY_DELAY_SECONDS:60}
+
+  outbox:
+    polling-interval-ms: ${OUTBOX_POLL_MS:5000}
+    batch-size: ${OUTBOX_BATCH_SIZE:10}
+
+  rate-limit:
+    default-per-minute: ${RATE_LIMIT_PER_MINUTE:100}
+
+---
+# ========================
+# LOCAL DEVELOPMENT PROFILE
+# ========================
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/insurance_integration
+    username: postgres
+    password: postgres
+
+  jpa:
+    show-sql: true
+
+aws:
+  use-localstack: true
+  endpoint-override: http://localhost:4566
+  region: us-east-1
+
+logging:
+  level:
+    com.insurance.integration: DEBUG
+    org.hibernate.SQL: DEBUG
+
+---
+# ========================
+# TEST PROFILE
+# ========================
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  flyway:
+    clean-disabled: false   # Allow clean in tests only
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    com.insurance.integration: INFO
+    org.hibernate.SQL: WARN

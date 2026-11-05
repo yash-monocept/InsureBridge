@@ -1,0 +1,37 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Module 0 completion: Flyway migrations V3-V10, BaseEntity, HealthController, application-local.yml/.env.example, and Module 0 context-loads test",
+  "status": "in_progress",
+  "steps": [
+    "Create src/main/java/com/insurance/integration/common/entity/BaseEntity.java — abstract JPA entity with UUID id (@GeneratedValue via IDENTITY not AUTO — use @Column(updatable=false) + default from DB), createdAt (@CreatedDate), updatedAt (@LastModifiedDate), all TIMESTAMPTZ mapped to Instant",
+    "Create src/main/resources/db/migration/V3__Create_api_clients_schema_engine.sql — NOTE: api_clients is ALREADY in V2, so V3 creates product_schemas, field_rules, document_rules exactly as in docs/06-Database-Design.md sections B.5, B.6, B.7",
+    "Create src/main/resources/db/migration/V4__Create_ingestion.sql — ingestion_requests, ingestion_documents as in docs/06-Database-Design.md sections B.8, B.9",
+    "Create src/main/resources/db/migration/V5__Create_transfer.sql — transfer_jobs, destination_documents, document_validations as in docs/06-Database-Design.md sections B.10, B.11, B.12",
+    "Create src/main/resources/db/migration/V6__Create_notifications.sql — webhook_events as in docs/06-Database-Design.md section B.13",
+    "Create src/main/resources/db/migration/V7__Create_audit_outbox.sql — audit_events, outbox_events as in docs/06-Database-Design.md sections B.14, B.15",
+    "Create src/main/resources/db/migration/V8__Seed_insurers.sql — INSERT 3 insurers: MAX_LIFE (LIFE), AXIS_MAX_LIFE (LIFE), CARE_HEALTH (HEALTH) with sensible placeholder values for bucket/region fields",
+    "Create src/main/resources/db/migration/V9__Seed_product_schemas.sql — INSERT base product schemas for MOTOR_INSURANCE and TRAVEL_INSURANCE (global schemas: insurer_id=NULL, partner_id=NULL). Insert field_rules for each: MOTOR needs customer.name, customer.mobile, vehicle.make, vehicle.model, vehicle.registrationNumber. TRAVEL needs customer.name, customer.mobile, passenger.age, journey.departureDate, journey.destination. Insert document_rules: MOTOR requires IDENTITY_PROOF + VEHICLE_DOCUMENT; TRAVEL requires IDENTITY_PROOF + BOOKING_CONFIRMATION",
+    "Create src/main/java/com/insurance/integration/config/HealthController.java — simple @RestController at /api/v1/health with GET returning { status: UP, service: insurance-integration-middleware, version: 1.0.0 } using ApiResponse",
+    "Create src/main/resources/application-local.yml — override profile for local dev with LocalStack endpoint, debug SQL, DEBUG logging",
+    "Create .env.example at project root — list all environment variables used in application.yml with placeholder values and comments",
+    "Create src/test/java/com/insurance/integration/integration/ApplicationContextTest.java — @SpringBootTest test using Testcontainers PostgreSQL. Test class: ApplicationContextTest. Tests: (1) contextLoads — assert that context loads, (2) databaseConnectionWorks — autowire DataSource and run simple query, (3) flywayMigrationsRun — assert flyway.info().applied().length >= 7. Use @Testcontainers + @Container PostgreSQLContainer. Configure test datasource via @DynamicPropertySource",
+    "Run mvn compile and fix any compilation errors"
+  ],
+  "acceptance_criteria": [
+    "mvn compile succeeds with zero errors",
+    "All Flyway migrations V1-V9 parse correctly (valid SQL syntax)",
+    "BaseEntity has id, createdAt, updatedAt fields compatible with @EnableJpaAuditing in JpaConfig",
+    "HealthController responds at GET /api/v1/health (public endpoint — add to SecurityConfig PUBLIC_PATHS)",
+    ".env.example covers all variables in application.yml",
+    "ApplicationContextTest compiles and can be run with mvn test (requires Docker for Testcontainers)"
+  ],
+  "verification": [
+    "Run: mvn compile -f pom.xml (from workspace root) — must show BUILD SUCCESS",
+    "Check that src/main/resources/db/migration/ contains V1 through V9 SQL files",
+    "Check that BaseEntity.java exists at src/main/java/com/insurance/integration/common/entity/BaseEntity.java",
+    "Check that .env.example exists at project root"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

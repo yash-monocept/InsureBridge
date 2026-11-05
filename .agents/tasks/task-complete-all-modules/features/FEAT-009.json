@@ -1,0 +1,38 @@
+{
+  "id": "FEAT-009",
+  "type": "feat",
+  "description": "Modules 11+12 — Notifications/Webhooks (WebhookEvent, SNS, HMAC signatures, retry) and Audit/Logging (AuditEvent, MDC filter, structured logging)",
+  "status": "pending",
+  "steps": [
+    "Create src/main/java/com/insurance/integration/notification/entity/WebhookEvent.java — JPA entity extending BaseEntity. Fields: ingestionRequest (@ManyToOne), eventType (NotificationEventType enum), recipientType (String — 'PARTNER' or 'INSURER'), recipientId (UUID), deliveryMethod (String — 'WEBHOOK' or 'SNS'), payload (@Column(columnDefinition='jsonb')), status (String — 'PENDING', 'DELIVERED', 'FAILED'), httpStatusCode (Integer), responseBody (TEXT), retryCount (int default 0), lastAttemptedAt (Instant), deliveredAt (Instant). Table: webhook_events",
+    "Create src/main/java/com/insurance/integration/notification/repository/WebhookEventRepository.java — findByIngestionRequestId, findByStatusAndRetryCountLessThan(String status, int maxRetries) for retry scheduler",
+    "Create src/main/java/com/insurance/integration/notification/service/NotificationService.java interface — sendNotification(UUID ingestionRequestId, NotificationEventType eventType, UUID recipientId, String recipientType)",
+    "Create src/main/java/com/insurance/integration/notification/service/WebhookNotificationServiceImpl.java — implements NotificationService for WEBHOOK delivery. deliverWebhook: (1) load insurer or partner for webhookUrl and webhookSecret; (2) build payload JSON: { eventType, ingestionRequestId, timestamp, data }; (3) compute HMAC-SHA256 signature of payload using webhookSecret; (4) HTTP POST to webhookUrl with header X-Webhook-Signature: sha256={signature}; (5) record WebhookEvent with result; (6) retry up to 3 times on failure with exponential backoff (use @Retryable from spring-retry — but spring-retry is NOT in pom.xml, so implement retry manually with a loop and Thread.sleep). Use java.net.http.HttpClient for webhook delivery",
+    "Create src/main/java/com/insurance/integration/notification/service/SnsNotificationServiceImpl.java — implements NotificationService for SNS delivery. Uses SnsClient @Bean from AwsConfig. Publishes message to insurer's snsTopicArn. If snsTopicArn is null/empty, skip SNS and log a warning",
+    "Create src/main/java/com/insurance/integration/notification/service/NotificationOrchestrator.java — @Service. Called after status changes. sendNotificationsForStatus(UUID ingestionRequestId, IngestionStatus status): (1) load IngestionRequest; (2) based on status, determine which event type to fire (TRANSFER_COMPLETED → DOCUMENT_TRANSFER_COMPLETED, COMPLETED → PROCESSING_COMPLETED, VALIDATION_FAILED → VALIDATION_FAILED); (3) notify insurer via SNS if configured; (4) notify insurer via webhook if webhookUrl configured; (5) notify partner via webhook if partner has webhookUrl field — NOTE: partners table doesn't have webhookUrl in V1 migration, skip partner webhook notification for now or add a check",
+    "Update TransferJobServiceImpl to call NotificationOrchestrator after status transitions",
+    "Create src/main/java/com/insurance/integration/audit/entity/AuditEvent.java — JPA entity (NOT extending BaseEntity — audit records are immutable, use a simple @Id UUID + @Column). Fields: id (UUID @Id @GeneratedValue), entityType, entityId, action (AuditAction enum), actorType (String), actorId (String), oldValue (@Column(columnDefinition='jsonb')), newValue (@Column(columnDefinition='jsonb')), details (TEXT), ipAddress (String), createdAt (Instant, @CreatedDate or manually set). Table: audit_events",
+    "Create src/main/java/com/insurance/integration/audit/repository/AuditEventRepository.java — findByEntityTypeAndEntityId, findByActorId, findByCreatedAtBetween",
+    "Create src/main/java/com/insurance/integration/audit/service/AuditService.java interface + AuditServiceImpl.java — recordEvent(String entityType, String entityId, AuditAction action, String actorType, String actorId, Object oldValue, Object newValue, String details, String ipAddress). Use ObjectMapper to serialize old/new values to JSON. Always @Transactional(propagation=REQUIRES_NEW) so audit records are saved even if the main transaction rolls back",
+    "Create src/main/java/com/insurance/integration/common/logging/MdcLoggingFilter.java — OncePerRequestFilter. Runs before authentication. Sets MDC: requestId (UUID.randomUUID().toString()), incoming X-Request-Id header if present. After JWT auth filter has run, also sets partnerId from SecurityContext if available. Clears MDC in finally block",
+    "Update SecurityConfig to add MdcLoggingFilter FIRST in the filter chain (before JwtAuthenticationFilter)",
+    "Create src/test/java/com/insurance/integration/unit/notification/WebhookNotificationServiceImplTest.java — test: deliverWebhook_success_setsDelivered, deliverWebhook_httpFailure_retriesAndSetsFailed, computeHmacSignature_consistentOutput",
+    "Create src/test/java/com/insurance/integration/unit/audit/AuditServiceTest.java — test: recordEvent_success_savesAuditRecord, recordEvent_withNullValues_savesWithoutErrors",
+    "Run mvn compile and mvn test — fix all errors"
+  ],
+  "acceptance_criteria": [
+    "mvn compile succeeds",
+    "WebhookNotificationServiceImplTest and AuditServiceTest pass",
+    "Webhook HMAC-SHA256 signature is computed and sent in X-Webhook-Signature header",
+    "Webhook delivery retries up to 3 times on failure",
+    "AuditService uses REQUIRES_NEW propagation so audit records persist even if main tx rolls back",
+    "MDC filter sets requestId at start of every request",
+    "AuditEvent table does not use BaseEntity (audit records are immutable)"
+  ],
+  "verification": [
+    "Run: mvn compile — BUILD SUCCESS",
+    "Run: mvn test -Dtest=WebhookNotificationServiceImplTest,AuditServiceTest — must pass"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

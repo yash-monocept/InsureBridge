@@ -1,0 +1,37 @@
+{
+  "id": "FEAT-005",
+  "type": "feat",
+  "description": "Modules 4+5 — Schema Validation Engine and Business Validation: ProductSchema/FieldRule/DocumentRule entities, SchemaValidationService, BusinessValidationService, ValidationResult model, unit tests",
+  "status": "pending",
+  "steps": [
+    "Create src/main/java/com/insurance/integration/schema/entity/ProductSchema.java — JPA entity extending BaseEntity. Fields: insurer (@ManyToOne Insurer, nullable), partner (@ManyToOne Partner, nullable), productType (String), schemaVersion (String), schemaName (String), isActive (boolean default true). Table: product_schemas",
+    "Create src/main/java/com/insurance/integration/schema/entity/FieldRule.java — JPA entity extending BaseEntity. Fields: schema (@ManyToOne ProductSchema), fieldPath (String), displayName (String), isRequired (boolean), dataType (FieldDataType enum), minLength (Integer), maxLength (Integer), minValue (BigDecimal), maxValue (BigDecimal), regexPattern (String), allowedValues (TEXT — JSON), dateFormat (String), errorMessage (String). Table: field_rules",
+    "Create src/main/java/com/insurance/integration/schema/entity/DocumentRule.java — JPA entity extending BaseEntity. Fields: schema (@ManyToOne ProductSchema), documentType (String), isRequired (boolean), allowedMimeTypes (TEXT — JSON), maxSizeMb (Integer default 10), description (String). Table: document_rules",
+    "Create src/main/java/com/insurance/integration/schema/repository/ProductSchemaRepository.java — findByProductTypeAndInsurerIdAndIsActiveTrue, findByProductTypeAndInsurerIdIsNullAndPartnerIdIsNullAndIsActiveTrue (global schema fallback)",
+    "Create src/main/java/com/insurance/integration/schema/repository/FieldRuleRepository.java — findBySchemaId",
+    "Create src/main/java/com/insurance/integration/schema/repository/DocumentRuleRepository.java — findBySchemaId",
+    "Create src/main/java/com/insurance/integration/validation/dto/FieldValidationError.java — fields: fieldPath, displayName, errorCode, errorMessage",
+    "Create src/main/java/com/insurance/integration/validation/dto/ValidationResult.java — NOT a JPA entity. Fields: valid (boolean), blocking (boolean), fieldErrors (List<FieldValidationError>), documentErrors (List<String>), warnings (List<String>), schemaId (UUID), schemaVersion. Serialize to JSON for storage in ingestion_requests.validation_result",
+    "Create src/main/java/com/insurance/integration/schema/service/SchemaValidationService.java interface + SchemaValidationServiceImpl.java — validate(Map<String,Object> customerData, Map<String,Object> productData, List<DocumentSubmissionDto> documents, String productType, UUID insurerId, UUID partnerId) → ValidationResult. Logic: (1) find schema (insurer-specific first, then global); (2) use ObjectMapper to flatten the combined data map; (3) for each FieldRule: extract value from flattened map using dot-notation field_path; (4) validate isRequired, dataType, minLength, maxLength, regex, allowedValues; (5) validate document types against DocumentRule; (6) return ValidationResult",
+    "Create src/main/java/com/insurance/integration/validation/service/BusinessValidationService.java interface + BusinessValidationServiceImpl.java — validate(InsuranceSubmissionRequest request, UUID partnerId, UUID insurerId) → ValidationResult. Checks: (1) duplicate detection (same partnerId + externalReference within 24 hours — query IngestionRequestRepository); (2) product eligibility (partner-insurer mapping has productType in permittedProductTypes JSON); (3) cross-field date consistency (if journey.departureDate exists, must be in future); (4) registration number consistency (if vehicle.registrationNumber in productData != anything inconsistent in documents metadata — flag as WARNING not blocking); All blocking errors set blocking=true on ValidationResult",
+    "Update IngestionServiceImpl.submitRequest to call SchemaValidationService and BusinessValidationService after creating the record with status RECEIVED: (1) set status VALIDATING; (2) call schema validation; (3) call business validation; (4) if any blocking errors → set status VALIDATION_FAILED, save validationResult JSON, return HTTP 422; (5) if only warnings → set status VALIDATED; (6) use Jackson ObjectMapper to serialize ValidationResult to JSON string for the JSONB column",
+    "Add a DocumentRetrievalException handler in GlobalExceptionHandler for HTTP 422 (Unprocessable Entity) for VALIDATION_FAILED scenario — use existing ValidationException handler or add new",
+    "Create src/test/java/com/insurance/integration/unit/schema/SchemaValidationServiceTest.java — test with mocked repositories. Tests: validateMotorInsurance_allFieldsPresent_returnsValid, validateMotorInsurance_missingRequiredField_returnsError, validateTravelInsurance_validPayload_returnsValid, validateDocument_missingRequiredDocType_returnsError, validateField_regexMismatch_returnsError",
+    "Create src/test/java/com/insurance/integration/unit/validation/BusinessValidationServiceTest.java — test: duplicateExternalReference_returnsBlockingError, productEligibilityFails_returnsBlockingError, futureDateCheck_pastDate_returnsWarning",
+    "Run mvn compile and mvn test — fix all errors"
+  ],
+  "acceptance_criteria": [
+    "mvn compile succeeds",
+    "SchemaValidationServiceTest and BusinessValidationServiceTest pass",
+    "SchemaValidationService correctly finds global schema (insurer_id=null, partner_id=null) as fallback",
+    "Missing required fields produce FieldValidationError entries with blocking=true",
+    "Duplicate externalReference within 24 hours produces blocking error",
+    "ValidationResult can be serialized to JSON and stored in JSONB column"
+  ],
+  "verification": [
+    "Run: mvn compile — BUILD SUCCESS",
+    "Run: mvn test -Dtest=SchemaValidationServiceTest,BusinessValidationServiceTest — must pass"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

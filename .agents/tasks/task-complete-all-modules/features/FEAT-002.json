@@ -1,0 +1,45 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Module 1 — Partner Management: Partner, Insurer, PartnerInsurerMapping JPA entities, repositories, services, REST controllers, DTOs, input validation, unit tests",
+  "status": "pending",
+  "steps": [
+    "Create src/main/java/com/insurance/integration/partner/entity/Partner.java — JPA entity extending BaseEntity. Fields: partnerCode (VARCHAR 50 unique), partnerName, partnerType (enum PartnerType), contactEmail, contactPhone, websiteUrl, description, isActive (default true), approvedSourceHosts (TEXT — JSON array), maxDocumentSizeMb (int default 50), createdBy. Table: partners",
+    "Create src/main/java/com/insurance/integration/insurer/entity/Insurer.java — JPA entity extending BaseEntity. Fields: insurerCode, insurerName, insurerType (enum InsurerType), contactEmail, destinationBucketName, destinationBucketRegion, destinationIamRoleArn, destinationPathPrefix, snsTopicArn, webhookUrl, webhookSecret, isActive. Table: insurers",
+    "Create src/main/java/com/insurance/integration/partner/entity/PartnerInsurerMapping.java — JPA entity extending BaseEntity. Fields: partner (ManyToOne), insurer (ManyToOne), isActive, permittedProductTypes (TEXT — JSON), createdBy. Table: partner_insurer_mappings",
+    "Create src/main/java/com/insurance/integration/partner/repository/PartnerRepository.java — JpaRepository<Partner, UUID>. Methods: findByPartnerCode, findByIsActiveTrue (paginated), existsByPartnerCode",
+    "Create src/main/java/com/insurance/integration/insurer/repository/InsurerRepository.java — JpaRepository<Insurer, UUID>. Methods: findByInsurerCode, findByIsActiveTrue (paginated), existsByInsurerCode",
+    "Create src/main/java/com/insurance/integration/partner/repository/PartnerInsurerMappingRepository.java — JpaRepository<PartnerInsurerMapping, UUID>. Methods: findByPartnerIdAndInsurerIdAndIsActiveTrue, findByPartnerIdAndIsActiveTrue, existsByPartnerIdAndInsurerId",
+    "Create DTOs in src/main/java/com/insurance/integration/partner/dto/: PartnerRegistrationRequest (with @NotBlank, @Email, @Size validations), PartnerUpdateRequest, PartnerResponse (all fields including id, timestamps). Same pattern for src/main/java/com/insurance/integration/insurer/dto/",
+    "Create src/main/java/com/insurance/integration/partner/dto/PartnerInsurerMappingRequest.java and PartnerInsurerMappingResponse.java",
+    "Create src/main/java/com/insurance/integration/partner/service/PartnerService.java — interface with: registerPartner, updatePartner, activatePartner, deactivatePartner, getPartner(UUID), getPartnerByCode(String), listPartners(Pageable) → Page<PartnerResponse>",
+    "Create src/main/java/com/insurance/integration/partner/service/PartnerServiceImpl.java — implementation. registerPartner: check duplicate code → throw DuplicateResourceException. activatePartner/deactivatePartner: findById or throw ResourceNotFoundException, then set isActive. Use @Transactional",
+    "Create src/main/java/com/insurance/integration/insurer/service/InsurerService.java + InsurerServiceImpl.java — same pattern as PartnerService",
+    "Create src/main/java/com/insurance/integration/partner/service/PartnerInsurerMappingService.java + PartnerInsurerMappingServiceImpl.java — createMapping (check if partner and insurer exist, check no duplicate active mapping), deactivateMapping",
+    "Create src/main/java/com/insurance/integration/partner/controller/PartnerController.java — @RestController, @RequestMapping('/api/v1/admin/partners'). Endpoints: POST / (register), PUT /{id} (update), PUT /{id}/activate, PUT /{id}/deactivate, GET /{id}, GET / (paginated). All return ApiResponse<T>",
+    "Create src/main/java/com/insurance/integration/insurer/controller/InsurerController.java — @RestController, @RequestMapping('/api/v1/admin/insurers'). Endpoints: POST /, PUT /{id}, GET /{id}, GET /",
+    "Create src/main/java/com/insurance/integration/partner/controller/PartnerInsurerMappingController.java — endpoints: POST /api/v1/admin/partners/{partnerId}/insurers (create mapping), DELETE /api/v1/admin/partners/{partnerId}/insurers/{insurerId} (deactivate)",
+    "Update SecurityConfig PUBLIC_PATHS to keep admin endpoints requiring auth — admin endpoints should be accessible by authenticated requests only (no partner scope needed yet — that comes in Module 2)",
+    "Create src/test/java/com/insurance/integration/unit/partner/PartnerServiceTest.java — unit tests with @ExtendWith(MockitoExtension.class). Test: registerPartner_success, registerPartner_duplicateCode_throwsDuplicateResourceException, activatePartner_notFound_throwsResourceNotFoundException, deactivatePartner_success",
+    "Create src/test/java/com/insurance/integration/unit/insurer/InsurerServiceTest.java — similar unit tests for InsurerServiceImpl",
+    "Run mvn compile and fix all errors, then run mvn test and fix all test failures"
+  ],
+  "acceptance_criteria": [
+    "mvn compile succeeds with zero errors",
+    "mvn test passes all unit tests for PartnerServiceTest and InsurerServiceTest",
+    "Partner entity correctly maps to 'partners' table — column names match V1 migration",
+    "Insurer entity correctly maps to 'insurers' table — column names match V1 migration",
+    "PartnerInsurerMapping entity correctly maps to 'partner_insurer_mappings' table — column names match V2 migration",
+    "PartnerService.registerPartner throws DuplicateResourceException when partner_code already exists",
+    "PartnerService.activatePartner/deactivatePartner throws ResourceNotFoundException when partner not found",
+    "Controllers return HTTP 201 for creation, 200 for updates, 200 for reads, proper error codes on failures"
+  ],
+  "verification": [
+    "Run: mvn compile — must show BUILD SUCCESS",
+    "Run: mvn test -pl . -Dtest=PartnerServiceTest,InsurerServiceTest — must pass",
+    "Verify Partner entity has @Table(name='partners') and field names match V1 SQL column names",
+    "Verify Insurer entity has @Table(name='insurers') and field names match V1 SQL column names"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

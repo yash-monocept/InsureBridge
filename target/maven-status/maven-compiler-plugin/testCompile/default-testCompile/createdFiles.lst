@@ -1,0 +1,4 @@
+com\insurance\integration\unit\partner\PartnerServiceTest.class
+com\insurance\integration\unit\insurer\InsurerServiceTest.class
+com\insurance\integration\integration\ApplicationContextTest.class
+com\insurance\integration\unit\partner\PartnerMappingServiceTest.class

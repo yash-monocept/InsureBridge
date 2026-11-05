@@ -1,0 +1,42 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Module 2 — Partner Authentication and API Security: ApiClient entity, OAuth 2.0 Client Credentials token endpoint, JWT utility, JwtAuthenticationFilter, rate limiting, unit tests",
+  "status": "pending",
+  "steps": [
+    "Create src/main/java/com/insurance/integration/security/dto/TokenRequest.java — fields: clientId (String), clientSecret (String), grantType (String, must equal 'client_credentials'). Add @NotBlank validations",
+    "Create src/main/java/com/insurance/integration/security/dto/TokenResponse.java — fields: accessToken, tokenType ('Bearer'), expiresIn (seconds), scope",
+    "Create src/main/java/com/insurance/integration/partner/entity/ApiClient.java — JPA entity extending BaseEntity. Fields: partner (ManyToOne → Partner), clientId (VARCHAR 100 unique), clientSecretHash (VARCHAR 500), scopes (TEXT), tokenExpirySeconds (int default 3600), rateLimitPerMinute (int default 100), isActive (boolean default true), lastRotatedAt (Instant). Table: api_clients",
+    "Create src/main/java/com/insurance/integration/partner/repository/ApiClientRepository.java — JpaRepository<ApiClient, UUID>. Methods: findByClientId(String), findByClientIdAndIsActiveTrue(String), findByPartnerIdAndIsActiveTrue(UUID)",
+    "Create src/main/java/com/insurance/integration/security/dto/ApiClientRegistrationRequest.java — fields: partnerId (UUID), rateLimitPerMinute (int), tokenExpirySeconds (int), scopes (List<String>)",
+    "Create src/main/java/com/insurance/integration/security/dto/ApiClientResponse.java — fields: id, partnerId, clientId, scopes, tokenExpirySeconds, rateLimitPerMinute, isActive, createdAt. NOTE: clientSecret only returned on creation, never again",
+    "Create src/main/java/com/insurance/integration/security/service/JwtService.java — generateToken(UUID partnerId, String clientId, List<String> scopes, int expirySeconds) → String JWT. validateToken(String token) → boolean. extractPartnerId(String token) → UUID. extractScopes(String token) → List<String>. Use io.jsonwebtoken jjwt 0.12.6 (Jwts.builder(), HS256 key from app.security.jwt-secret). Key must be generated from the configured secret using Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8))",
+    "Create src/main/java/com/insurance/integration/security/service/ApiClientService.java interface + ApiClientServiceImpl.java — registerClient(ApiClientRegistrationRequest) → returns ApiClientResponse with plain clientSecret (only time it is returned), rotateSecret(UUID clientId), deactivateClient(UUID clientId). Use BCryptPasswordEncoder to hash secrets",
+    "Create src/main/java/com/insurance/integration/security/service/AuthenticationService.java — authenticate(TokenRequest) → TokenResponse. Loads ApiClient by clientId, verifies secret with passwordEncoder.matches(), checks isActive, checks partner.isActive(), generates JWT with JwtService",
+    "Create src/main/java/com/insurance/integration/security/filter/JwtAuthenticationFilter.java — OncePerRequestFilter. Extracts Bearer token from Authorization header. Validates with JwtService. Loads partner from DB. Sets SecurityContextHolder with UsernamePasswordAuthenticationToken. Skips PUBLIC_PATHS. Add 'X-Partner-Id' to request via request wrapper or attribute for downstream use",
+    "Create src/main/java/com/insurance/integration/security/filter/RateLimitFilter.java — OncePerRequestFilter. After JWT auth, reads partner's rateLimitPerMinute from the ApiClient. Use a ConcurrentHashMap<String, RateLimitBucket> with AtomicInteger counter per partnerId + minute window. If count exceeds limit, throw new response with HTTP 429. Simple implementation — no Bucket4j needed",
+    "Create src/main/java/com/insurance/integration/security/controller/AuthController.java — @RestController @RequestMapping('/api/v1/auth'). POST /token: accepts TokenRequest (form params: grant_type, client_id, client_secret OR JSON body — support JSON). Returns TokenResponse",
+    "Create src/main/java/com/insurance/integration/security/controller/ApiClientAdminController.java — @RestController @RequestMapping('/api/v1/admin/clients'). POST / (register), POST /{id}/rotate-secret, DELETE /{id}",
+    "Update SecurityConfig: inject JwtAuthenticationFilter and RateLimitFilter beans, add them before UsernamePasswordAuthenticationFilter using addFilterBefore. Keep PUBLIC_PATHS as is",
+    "Create src/test/java/com/insurance/integration/unit/security/JwtServiceTest.java — test: generateToken_validInputs_returnsValidJwt, validateToken_expiredToken_returnsFalse, validateToken_validToken_returnsTrue, extractPartnerId_validToken_returnsCorrectId",
+    "Create src/test/java/com/insurance/integration/unit/security/ApiClientServiceTest.java — test: registerClient_success, registerClient_partnerNotFound_throwsException, rotateSecret_success",
+    "Run mvn compile and fix all errors, then run mvn test and fix all failures"
+  ],
+  "acceptance_criteria": [
+    "mvn compile succeeds with zero errors",
+    "JwtServiceTest passes all tests",
+    "ApiClientServiceTest passes all tests",
+    "POST /api/v1/auth/token with valid client_id + client_secret returns JWT Bearer token",
+    "Requests to protected endpoints without Bearer token get HTTP 401",
+    "JWT filter correctly extracts partner identity and sets SecurityContext",
+    "Rate limit filter returns HTTP 429 when per-minute limit exceeded"
+  ],
+  "verification": [
+    "Run: mvn compile — must show BUILD SUCCESS",
+    "Run: mvn test -Dtest=JwtServiceTest,ApiClientServiceTest — must pass",
+    "Verify ApiClient entity maps to 'api_clients' table with column names matching V2 migration",
+    "Verify SecurityConfig adds JwtAuthenticationFilter to the filter chain"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

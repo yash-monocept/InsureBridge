@@ -1,0 +1,38 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Module 3 — Request Ingestion: IngestionRequest + IngestionDocument entities, submission endpoint, idempotency, status query, unit tests",
+  "status": "pending",
+  "steps": [
+    "Create src/main/java/com/insurance/integration/ingestion/entity/IngestionRequest.java — JPA entity extending BaseEntity. Fields: externalReference, idempotencyKey (@Column(unique=true)), partner (@ManyToOne Partner), insurer (@ManyToOne Insurer), productType (String), schema (@ManyToOne ProductSchema nullable), status (IngestionStatus enum, default RECEIVED), customerData (@Column(columnDefinition='jsonb')), productData (@Column(columnDefinition='jsonb')), metadata (@Column(columnDefinition='jsonb') nullable), validationResult (@Column(columnDefinition='jsonb') nullable), validationErrorCount (int default 0), ipAddress, userAgent, receivedAt (Instant), validatedAt (Instant nullable), queuedAt (Instant nullable), completedAt (Instant nullable). Table: ingestion_requests",
+    "Create src/main/java/com/insurance/integration/ingestion/entity/IngestionDocument.java — JPA entity extending BaseEntity. Fields: ingestionRequest (@ManyToOne), documentType (String), sourceS3Url (TEXT — @Column(name='source_s3_url', length=2000)), sourceUrlHash (VARCHAR 64), sourceBucket, sourceKey (length 1000), originalFilename, declaredMimeType, declaredSizeBytes (Long), documentStatus (DocumentStatus enum, default PENDING). Table: ingestion_documents",
+    "Create src/main/java/com/insurance/integration/ingestion/repository/IngestionRequestRepository.java — JpaRepository<IngestionRequest, UUID>. Methods: findByIdempotencyKey(String), findByPartnerIdAndExternalReference(UUID, String), findByIdAndPartnerId(UUID, UUID) — for partner own-request check",
+    "Create src/main/java/com/insurance/integration/ingestion/repository/IngestionDocumentRepository.java — JpaRepository<IngestionDocument, UUID>. Methods: findByIngestionRequestId(UUID)",
+    "Create src/main/java/com/insurance/integration/ingestion/dto/DocumentSubmissionDto.java — fields: documentType (String @NotBlank), s3Url (String @NotBlank), originalFilename, declaredMimeType, declaredSizeBytes",
+    "Create src/main/java/com/insurance/integration/ingestion/dto/InsuranceSubmissionRequest.java — fields: customerData (Map<String,Object> @NotNull), productData (Map<String,Object> @NotNull), insurerCode (String @NotBlank), productType (String @NotBlank), documents (List<DocumentSubmissionDto> @NotNull @NotEmpty), externalReference (String), idempotencyKey (String @NotBlank @Size(max=200))",
+    "Create src/main/java/com/insurance/integration/ingestion/dto/IngestionSubmissionResponse.java — fields: ingestionRequestId (UUID), status (String), message (String), externalReference, receivedAt (Instant)",
+    "Create src/main/java/com/insurance/integration/ingestion/dto/IngestionStatusResponse.java — fields: ingestionRequestId, status, productType, insurerCode, externalReference, validationErrorCount, receivedAt, validatedAt, queuedAt, completedAt, documents (List<DocumentStatusDto>)",
+    "Create src/main/java/com/insurance/integration/ingestion/dto/DocumentStatusDto.java — fields: documentId, documentType, documentStatus",
+    "Create src/main/java/com/insurance/integration/ingestion/service/IngestionService.java interface + IngestionServiceImpl.java — submitRequest(InsuranceSubmissionRequest, UUID partnerId, String ipAddress, String userAgent): (1) check idempotency — if idempotencyKey exists return existing record as HTTP 200 response with existing status; (2) resolve insurer by insurerCode or throw ResourceNotFoundException; (3) check partner-insurer mapping is active or throw ValidationException; (4) create IngestionRequest with status=RECEIVED; (5) create IngestionDocument records; (6) compute SHA-256 of sourceS3Url and store in sourceUrlHash (use MessageDigest). getStatus(UUID ingestionRequestId, UUID partnerId): find by id and partnerId (partner can only see own requests) or throw ResourceNotFoundException",
+    "Create src/main/java/com/insurance/integration/ingestion/controller/IngestionController.java — @RestController @RequestMapping('/api/v1/partner'). POST /insurance/submit: extract partnerId from SecurityContext (via custom @AuthenticationPrincipal or request attribute set by JwtAuthenticationFilter). GET /status/{ingestionRequestId}. Return HTTP 202 for new submission, HTTP 200 for idempotent repeat. Requires JWT auth",
+    "Update SecurityConfig: /api/v1/partner/** requires authentication (already covered by anyRequest().authenticated())",
+    "Create src/test/java/com/insurance/integration/unit/ingestion/IngestionServiceTest.java — test: submitRequest_success_returnsReceived, submitRequest_idempotentKey_returnsExistingRecord, submitRequest_unknownInsurer_throwsException, submitRequest_inactiveMapping_throwsException, getStatus_wrongPartner_throwsResourceNotFoundException",
+    "Run mvn compile and mvn test — fix all errors"
+  ],
+  "acceptance_criteria": [
+    "mvn compile succeeds",
+    "IngestionServiceTest passes all tests",
+    "POST /api/v1/partner/insurance/submit with valid JWT returns HTTP 202 with ingestionRequestId",
+    "Second submission with same idempotencyKey returns HTTP 200 with same ingestionRequestId",
+    "GET /api/v1/partner/status/{id} returns full status for partner's own requests",
+    "Partner cannot see another partner's requests (ResourceNotFoundException)"
+  ],
+  "verification": [
+    "Run: mvn compile — BUILD SUCCESS",
+    "Run: mvn test -Dtest=IngestionServiceTest — must pass",
+    "Verify IngestionRequest maps to 'ingestion_requests' table with JSONB columns for customer_data and product_data",
+    "Verify IngestionDocument maps to 'ingestion_documents' table"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

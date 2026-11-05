@@ -1,0 +1,33 @@
+{
+  "id": "FEAT-008",
+  "type": "feat",
+  "description": "Module 9+10 — Destination S3 upload, checksum verification, TransferJobService full lifecycle, admin APIs, retry API, unit tests",
+  "status": "pending",
+  "steps": [
+    "Create src/main/java/com/insurance/integration/storage/destination/S3DestinationService.java interface — uploadDocument(byte[] bytes, String destinationBucket, String destinationKey, String mimeType, Insurer insurer) → DestinationUploadResult. DestinationUploadResult: { eTag, destinationKey, fileSizeBytes }. Also: verifyChecksum(String bucket, String key, String expectedChecksum, Insurer insurer) → boolean",
+    "Create src/main/java/com/insurance/integration/storage/destination/AwsS3DestinationServiceImpl.java — @ConditionalOnProperty(name='aws.use-localstack', havingValue='false', matchIfMissing=true). Uses S3Client @Bean from AwsConfig. uploadDocument: (1) if insurer.destinationIamRoleArn is not null, use STS AssumeRole to get temporary credentials for cross-account access; create a new S3Client with those credentials; (2) build PutObjectRequest with bucket + key + contentType + contentLength; (3) upload bytes; (4) return result. verifyChecksum: download the object, compute SHA-256, compare to expected",
+    "Create src/main/java/com/insurance/integration/storage/destination/LocalS3DestinationServiceImpl.java — @ConditionalOnProperty(name='aws.use-localstack', havingValue='true'). Same as Aws impl but uses LocalStack S3 endpoint from AwsConfig",
+    "Create src/main/java/com/insurance/integration/transfer/service/TransferJobService.java interface + TransferJobServiceImpl.java — processTransferJob(UUID ingestionRequestId): (1) load IngestionRequest + TransferJob + all IngestionDocuments; (2) set TransferJob status to PROCESSING; (3) for each IngestionDocument: a) retrieve bytes (call DocumentRetrievalService which calls S3SourceService); b) validate document (call DocumentValidationService); c) if invalid → set document status DOCUMENT_REJECTED, mark job TRANSFER_FAILED; d) build destination S3 key: {insurer.destinationPathPrefix}/{productType}/{date}/{ingestionRequestId}/{documentType}_{documentId}.{ext}; e) upload to destination S3; f) verify checksum — if mismatch → set status CHECKSUM_MISMATCH and fail; g) save DestinationDocument record; (4) after all docs transferred → update TransferJob status TRANSFERRED, IngestionRequest status TRANSFERRED; (5) on failure increment retryCount — if retryCount >= maxRetries set DEAD_LETTER",
+    "Create src/main/java/com/insurance/integration/ingestion/dto/AdminIngestionResponse.java — all fields of IngestionRequest + TransferJob details + document details + validation result",
+    "Create src/main/java/com/insurance/integration/ingestion/controller/AdminIngestionController.java — @RestController @RequestMapping('/api/v1/admin/requests'). GET /{ingestionRequestId} (full admin view), GET / (paginated list with @RequestParam filters: status, partnerId, insurerId, fromDate, toDate), POST /{ingestionRequestId}/retry (resets TRANSFER_FAILED jobs: set retryCount=0, status=QUEUED, create new OutboxEvent)",
+    "Update GET /api/v1/partner/status/{id} in IngestionController to return enriched IngestionStatusResponse including transfer details if TransferJob exists",
+    "Create src/test/java/com/insurance/integration/unit/transfer/TransferJobServiceTest.java — tests: processTransferJob_allDocumentsSuccess_setsTransferred, processTransferJob_documentValidationFails_setsTransferFailed, processTransferJob_checksumMismatch_failsJob, processTransferJob_maxRetriesExceeded_setsDeadLetter",
+    "Create src/test/java/com/insurance/integration/unit/storage/AwsS3DestinationServiceImplTest.java — test: uploadDocument_success_returnsResult, verifyChecksum_match_returnsTrue, verifyChecksum_mismatch_returnsFalse",
+    "Run mvn compile and mvn test — fix all errors"
+  ],
+  "acceptance_criteria": [
+    "mvn compile succeeds",
+    "TransferJobServiceTest and AwsS3DestinationServiceImplTest pass",
+    "Destination S3 key format matches: {prefix}/{productType}/{date}/{ingestionRequestId}/{documentType}_{documentId}.{ext}",
+    "Destination bucket ALWAYS comes from Insurer entity — never from partner request",
+    "Checksum mismatch causes job failure, not silent continuation",
+    "Admin retry endpoint resets retryCount and creates new OutboxEvent",
+    "Admin list endpoint supports pagination and filtering"
+  ],
+  "verification": [
+    "Run: mvn compile — BUILD SUCCESS",
+    "Run: mvn test -Dtest=TransferJobServiceTest,AwsS3DestinationServiceImplTest — must pass"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

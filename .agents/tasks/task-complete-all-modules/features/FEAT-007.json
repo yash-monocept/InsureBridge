@@ -1,0 +1,39 @@
+{
+  "id": "FEAT-007",
+  "type": "feat",
+  "description": "Modules 7+8 — Async Processing (Outbox/SQS/TransferJob) and Document File Validation (magic bytes, MIME, size, checksum)",
+  "status": "pending",
+  "steps": [
+    "Create src/main/java/com/insurance/integration/transfer/entity/OutboxEvent.java — JPA entity extending BaseEntity. Fields: ingestionRequest (@ManyToOne), queueUrl (String), messageBody (TEXT), published (boolean default false), publishedAt (Instant), publishAttempts (int default 0), lastError (TEXT). Table: outbox_events",
+    "Create src/main/java/com/insurance/integration/transfer/entity/TransferJob.java — JPA entity extending BaseEntity. Fields: ingestionRequest (@OneToOne), sqsMessageId (String), status (String — use values from IngestionStatus: QUEUED, PROCESSING, TRANSFERRED, TRANSFER_FAILED, DEAD_LETTER), retryCount (int default 0), maxRetries (int default 3), lastError (TEXT), lastErrorAt (Instant), processingStartedAt (Instant), processingCompletedAt (Instant), deadLetteredAt (Instant). Table: transfer_jobs",
+    "Create src/main/java/com/insurance/integration/transfer/entity/DestinationDocument.java — JPA entity extending BaseEntity. Fields: ingestionDocument (@ManyToOne), transferJob (@ManyToOne), insurer (@ManyToOne), destinationBucket, destinationKey (length 1000), destinationUrl (length 2000), sourceChecksumSha256 (VARCHAR 64), destinationChecksumSha256 (VARCHAR 64), checksumVerified (boolean default false), fileSizeBytes (Long), mimeType (String), uploadedAt (Instant). Table: destination_documents",
+    "Create src/main/java/com/insurance/integration/transfer/entity/DocumentValidation.java — JPA entity extending BaseEntity. Fields: ingestionDocument (@OneToOne), validationPassed (boolean), actualMimeType (String), fileSignatureValid (Boolean), fileSizeBytes (Long), checksumSha256 (VARCHAR 64), validationErrors (@Column(columnDefinition='jsonb')). NOTE: use 'validated_at' column not from BaseEntity's updatedAt — add an explicit validatedAt field (Instant). Table: document_validations",
+    "Create repositories: OutboxEventRepository, TransferJobRepository, DestinationDocumentRepository, DocumentValidationRepository — all extend JpaRepository. Add findByPublishedFalseOrderByCreatedAtAsc in OutboxEventRepository (for poller). Add findByIngestionRequestId in TransferJobRepository",
+    "Create src/main/java/com/insurance/integration/transfer/service/SqsService.java interface — publishMessage(String queueUrl, String messageBody, String messageGroupId) → String (messageId)",
+    "Create src/main/java/com/insurance/integration/transfer/service/AwsSqsServiceImpl.java — @ConditionalOnProperty(name='aws.use-localstack', havingValue='false', matchIfMissing=true). Uses software.amazon.awssdk.services.sqs.SqsClient to send message. Configure SqsClient as a @Bean in a new AwsConfig.java",
+    "Create src/main/java/com/insurance/integration/config/AwsConfig.java — @Configuration. Creates @Bean SqsClient, S3Client, SnsClient using AwsBasicCredentials or default credential provider. If aws.use-localstack=true, override endpoint with endpointOverride(URI.create(endpointOverride)). Inject aws.region, aws.endpoint-override, aws.use-localstack from application.yml via @Value",
+    "Create src/main/java/com/insurance/integration/transfer/service/LocalSqsServiceImpl.java — @ConditionalOnProperty(name='aws.use-localstack', havingValue='true'). Same implementation using SqsClient but pointing to LocalStack endpoint",
+    "Update IngestionServiceImpl: after validation passes (status VALIDATED), within the SAME @Transactional method: (1) update IngestionRequest status to VALIDATED; (2) build SQS message body JSON: { ingestionRequestId, partnerId, insurerId, documentIds[] }; (3) create OutboxEvent (published=false); (4) create TransferJob (status=QUEUED); (5) save all — the transaction commits everything atomically",
+    "Create src/main/java/com/insurance/integration/transfer/service/OutboxPublisherService.java — @Service @Scheduled(fixedDelayString='${app.outbox.polling-interval-ms:5000}'). Method publishPendingEvents(): find all OutboxEvent where published=false (limit to app.outbox.batch-size), for each: call SqsService.publishMessage, update OutboxEvent.published=true + publishedAt + sqsMessageId in TransferJob. On SQS failure: increment publishAttempts, save lastError. Add @EnableScheduling to IntegrationMiddlewareApplication or a new config class",
+    "Create src/main/java/com/insurance/integration/document/service/DocumentValidationService.java interface + DocumentValidationServiceImpl.java — validateDocument(byte[] documentBytes, IngestionDocument ingestionDocument, Partner partner) → DocumentValidation. Logic: (1) check magic bytes: PDF starts with %PDF (25 50 44 46), PNG with 89 50 4E 47, JPEG with FF D8 FF; (2) determine actualMimeType from magic bytes; (3) compare to declaredMimeType — if mismatch → validation failed; (4) check fileSizeBytes <= partner.maxDocumentSizeMb * 1024 * 1024; (5) detect empty files (length == 0); (6) compute SHA-256 checksum; (7) save DocumentValidation record",
+    "Create src/test/java/com/insurance/integration/unit/transfer/OutboxPublisherServiceTest.java — test: publishPendingEvents_withUnpublishedEvents_publishesAndMarksPublished, publishPendingEvents_sqsFailure_incrementsAttemptCount",
+    "Create src/test/java/com/insurance/integration/unit/document/DocumentValidationServiceTest.java — test: validateDocument_validPdf_returnsValid, validateDocument_emptyFile_returnsInvalid, validateDocument_mimeTypeMismatch_returnsInvalid, validateDocument_exceedsMaxSize_returnsInvalid, validateDocument_validPng_returnsValid",
+    "Create PDF magic bytes test byte array: new byte[]{0x25, 0x50, 0x44, 0x46, 0x2D} (that is %PDF-)",
+    "Run mvn compile and mvn test — fix all errors"
+  ],
+  "acceptance_criteria": [
+    "mvn compile succeeds",
+    "OutboxPublisherServiceTest and DocumentValidationServiceTest pass",
+    "TransferJob and OutboxEvent entities map to their respective tables",
+    "OutboxPublisher @Scheduled method picks up unpublished events and publishes to SQS",
+    "DocumentValidationService detects PDF/PNG/JPEG by magic bytes, rejects size violations and MIME mismatches",
+    "SQS message body contains ingestionRequestId, partnerId, insurerId, documentIds"
+  ],
+  "verification": [
+    "Run: mvn compile — BUILD SUCCESS",
+    "Run: mvn test -Dtest=OutboxPublisherServiceTest,DocumentValidationServiceTest — must pass",
+    "Verify AwsConfig creates SqsClient bean with conditional LocalStack endpoint support"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

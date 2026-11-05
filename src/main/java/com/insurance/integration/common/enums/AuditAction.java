@@ -1,0 +1,49 @@
+package com.insurance.integration.common.enums;
+
+/**
+ * Audit actions recorded in the audit event log.
+ */
+public enum AuditAction {
+    // Partner management
+    PARTNER_CREATED,
+    PARTNER_UPDATED,
+    PARTNER_ACTIVATED,
+    PARTNER_DEACTIVATED,
+
+    // Insurer management
+    INSURER_CREATED,
+    INSURER_UPDATED,
+
+    // API client management
+    API_CLIENT_CREATED,
+    API_CLIENT_SECRET_ROTATED,
+    API_CLIENT_DEACTIVATED,
+
+    // Authentication
+    PARTNER_AUTH_SUCCESS,
+    PARTNER_AUTH_FAILED,
+    ADMIN_LOGIN_SUCCESS,
+    ADMIN_LOGIN_FAILED,
+
+    // Ingestion lifecycle
+    INGESTION_RECEIVED,
+    INGESTION_VALIDATION_STARTED,
+    INGESTION_VALIDATION_FAILED,
+    INGESTION_VALIDATION_PASSED,
+    INGESTION_QUEUED,
+    INGESTION_PROCESSING_STARTED,
+    INGESTION_TRANSFER_COMPLETED,
+    INGESTION_TRANSFER_FAILED,
+    INGESTION_COMPLETED,
+    INGESTION_DEAD_LETTERED,
+
+    // Schema management
+    SCHEMA_CREATED,
+    SCHEMA_UPDATED,
+    SCHEMA_DEACTIVATED,
+
+    // Security events
+    RATE_LIMIT_EXCEEDED,
+    UNAUTHORIZED_ACCESS_ATTEMPT,
+    SSRF_ATTEMPT_BLOCKED
+}

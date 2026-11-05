@@ -1,0 +1,72 @@
+# ============================================================
+# application-local.yml — Local development profile overrides
+# ============================================================
+# Activated via: spring.profiles.active=local
+# Or by setting SPRING_PROFILES_ACTIVE=local
+#
+# This file overrides defaults in application.yml for local
+# development. It enables debug SQL logging, LocalStack endpoints,
+# and relaxed settings suitable for a developer workstation.
+#
+# IMPORTANT: Never commit real AWS credentials or secrets.
+#            Use .env or environment variables for sensitive values.
+# ============================================================
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/insurance_integration
+    username: postgres
+    password: postgres
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    clean-disabled: false     # Allow Flyway clean in local development ONLY — never in production
+
+# ============================================================
+# AWS — LocalStack for local development
+# ============================================================
+aws:
+  region: us-east-1
+  use-localstack: true
+  endpoint-override: http://localhost:4566    # LocalStack default endpoint
+
+  sqs:
+    document-transfer-queue-url: http://localhost:4566/000000000000/document-transfer-queue
+    dead-letter-queue-url: http://localhost:4566/000000000000/document-transfer-dlq
+
+  sns:
+    platform-topic-arn: arn:aws:sns:us-east-1:000000000000:insurance-platform-events
+
+# ============================================================
+# Logging — verbose output for local debugging
+# ============================================================
+logging:
+  level:
+    root: INFO
+    com.insurance.integration: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE    # Shows bind parameter values for SQL debugging
+    org.flywaydb: DEBUG
+    software.amazon.awssdk: DEBUG
+
+# ============================================================
+# Actuator — expose all endpoints locally
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+      show-components: always

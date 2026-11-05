@@ -1,0 +1,34 @@
+{
+  "id": "FEAT-006",
+  "type": "feat",
+  "description": "Module 6 — Source AWS S3 Integration: SSRF protection, pre-signed URL document retrieval, checksum, status updates, unit tests",
+  "status": "pending",
+  "steps": [
+    "Create src/main/java/com/insurance/integration/storage/source/S3SourceService.java interface — methods: retrieveDocument(IngestionDocument ingestionDocument, Partner partner) → byte[]; validateUrl(String url, List<String> approvedHosts) → void (throws SsrfAttemptException if invalid)",
+    "Create src/main/java/com/insurance/integration/common/utility/SsrfProtectionUtil.java — static utility. validatePresignedUrl(String url, List<String> approvedHosts): (1) parse URL with java.net.URI; (2) require HTTPS scheme; (3) extract hostname; (4) reject if hostname matches: localhost, 127.x.x.x, 10.x.x.x, 172.16-31.x.x, 192.168.x.x, 169.254.169.254, metadata.amazonaws.com, instance-data (all variants via InetAddress or regex); (5) if approvedHosts not empty, check hostname ends with one of the approved host patterns; (6) throw SsrfAttemptException with NON-REVEALING message if any check fails — NEVER include the URL in the exception message or log",
+    "Create src/main/java/com/insurance/integration/storage/source/AwsS3SourceServiceImpl.java — annotated @Service @Profile('!localstack') OR use @ConditionalOnProperty(name='aws.use-localstack', havingValue='false', matchIfMissing=true). Implements S3SourceService. retrieveDocument: (1) call SsrfProtectionUtil.validatePresignedUrl; (2) use java.net.http.HttpClient with timeout (30 seconds connect, 60 seconds request) to GET the pre-signed URL; (3) check HTTP response status — if 403 throw DocumentRetrievalException with reason 'URL_EXPIRED'; if 4xx/5xx throw DocumentRetrievalException; (4) compute SHA-256 checksum of response body bytes using MessageDigest; (5) return bytes",
+    "Create src/main/java/com/insurance/integration/storage/source/LocalS3SourceServiceImpl.java — annotated @Service @ConditionalOnProperty(name='aws.use-localstack', havingValue='true'). Implements S3SourceService. For local dev: still validates SSRF but makes the HTTP call to LocalStack pre-signed URL. If URL is a test placeholder (contains 'localhost:4566'), delegate to AwsS3SourceServiceImpl logic but using the same HttpClient",
+    "Create src/main/java/com/insurance/integration/document/service/DocumentRetrievalService.java — orchestrates retrieval for all documents in an IngestionRequest: (1) for each IngestionDocument with status PENDING: set status FETCHING_SOURCE; (2) call S3SourceService.retrieveDocument; (3) on success: compute checksum, update document status to FETCHED (or SOURCE_RETRIEVED), store checksum in a DocumentBytesHolder (in-memory, not persisted); (4) on DocumentRetrievalException with URL_EXPIRED: set document status FETCH_FAILED with error detail; (5) if all documents fetched → update IngestionRequest status to SOURCE_RETRIEVED",
+    "NOTE: DocumentBytesHolder is a transient in-memory structure. The actual bytes are not stored in DB. They are passed through the processing pipeline in memory. Create src/main/java/com/insurance/integration/document/model/DocumentBytes.java — simple record: UUID documentId, byte[] bytes, String checksumSha256",
+    "Create src/main/java/com/insurance/integration/common/utility/ChecksumUtil.java — static method: computeSha256(byte[] data) → String (hex string)",
+    "Update IngestionDocument entity to add a transient field OR update a fetchedChecksum that is persisted — actually looking at the entity: add field fetchedChecksumSha256 (VARCHAR 64, nullable) to the entity and ensure V4 migration includes it. If V4 is already created, add it to the migration definition",
+    "Create src/test/java/com/insurance/integration/unit/storage/AwsS3SourceServiceImplTest.java — unit test with mocked HttpClient (use Mockito.mock). Tests: retrieveDocument_success_returnsBytes, retrieveDocument_403Response_throwsDocumentRetrievalExceptionUrlExpired, retrieveDocument_500Response_throwsDocumentRetrievalException",
+    "Create src/test/java/com/insurance/integration/unit/utility/SsrfProtectionUtilTest.java — test: validateUrl_localhost_throwsSsrf, validateUrl_10xNetwork_throwsSsrf, validateUrl_169_254_throwsSsrf, validateUrl_httpNotHttps_throwsSsrf, validateUrl_validApprovedHost_passes, validateUrl_unapprovedHost_throwsSsrf",
+    "Run mvn compile and mvn test — fix all errors"
+  ],
+  "acceptance_criteria": [
+    "mvn compile succeeds",
+    "SsrfProtectionUtilTest and AwsS3SourceServiceImplTest pass",
+    "SsrfProtectionUtil blocks localhost, 127.x, 10.x, 172.16-31.x, 192.168.x, 169.254.169.254",
+    "HTTPS is required — HTTP URLs are rejected",
+    "403 from pre-signed URL → DocumentRetrievalException with reason URL_EXPIRED",
+    "Full pre-signed URLs are never logged (verified by code review of log statements)"
+  ],
+  "verification": [
+    "Run: mvn compile — BUILD SUCCESS",
+    "Run: mvn test -Dtest=SsrfProtectionUtilTest,AwsS3SourceServiceImplTest — must pass",
+    "Grep source files: grep -r 'log.*sourceS3Url\\|log.*source_s3_url' src/ — should return nothing"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
