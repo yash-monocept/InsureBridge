@@ -44,6 +44,8 @@ public class CreateInsurerRequest {
     private String destinationBucketRegion;
 
     @Size(max = 500)
+    @Pattern(regexp = "^arn:aws[a-zA-Z-]*:[a-z0-9-]+:[a-z0-9-]*:\\d{12}:.+$",
+             message = "IAM role ARN must be a valid AWS ARN")
     @Schema(description = "IAM role ARN for cross-account S3 access",
             example = "arn:aws:iam::123456789012:role/InsuranceIntegrationRole")
     private String destinationIamRoleArn;

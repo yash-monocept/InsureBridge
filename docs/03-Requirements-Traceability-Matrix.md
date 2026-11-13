@@ -4,13 +4,13 @@
 
 | Req ID | Source | Requirement | Module | Status |
 |--------|--------|-------------|--------|--------|
-| MID-001 | Prompt Part 2 | Authenticate distribution partners | MOD-2: Partner Auth | PENDING |
-| MID-002 | Prompt Part 2 | Check partner permissions | MOD-2: Partner Auth | PENDING |
-| MID-003 | Prompt Part 2 | Identify intended insurer | MOD-1: Partner Mgmt | PENDING |
+| MID-001 | Prompt Part 2 | Authenticate distribution partners | MOD-2: Partner Auth | COMPLETE |
+| MID-002 | Prompt Part 2 | Check partner permissions | MOD-2: Partner Auth | COMPLETE |
+| MID-003 | Prompt Part 2 | Identify intended insurer | MOD-1: Partner Mgmt | COMPLETE |
 | MID-004 | Prompt Part 2 | Validate incoming request schema | MOD-4: Schema Validation | PENDING |
 | MID-005 | Prompt Part 2 | Detect missing/incorrect/conflicting fields | MOD-4: Schema Validation | PENDING |
-| MID-006 | Prompt Part 2 | Verify source document S3 references | MOD-6: S3 Source | PENDING |
-| MID-007 | Prompt Part 2 | Retrieve documents from partner S3 | MOD-6: S3 Source | PENDING |
+| MID-006 | Prompt Part 2 | Verify source document S3 references | MOD-6: S3 Source | VALIDATOR DONE (M2) |
+| MID-007 | Prompt Part 2 | Retrieve documents from partner S3 | MOD-6: S3 Source | VALIDATOR DONE (M2) |
 | MID-008 | Prompt Part 2 | Perform document validation | MOD-8: Doc Processing | PENDING |
 | MID-009 | Prompt Part 2 | Initiate async processing after validation | MOD-7: Async Processing | PENDING |
 | MID-010 | Prompt Part 2 | Transfer documents to insurer S3 | MOD-9: Dest S3 | PENDING |
@@ -19,38 +19,38 @@
 | MID-013 | Prompt Part 2 | Maintain complete audit history | MOD-12: Audit | PENDING |
 | MID-014 | Prompt Part 4 | Return HTTP 202 only after durable persistence | MOD-3: Ingestion | PENDING |
 | MID-015 | Prompt Part 4 | Transactional outbox for reliable queue publication | MOD-7: Async | PENDING |
-| MID-016 | Prompt Part 5/MOD-0 | Spring Boot application starts | MOD-0: Foundation | PENDING |
-| MID-017 | Prompt Part 5/MOD-0 | PostgreSQL connection works | MOD-0: Foundation | PENDING |
-| MID-018 | Prompt Part 5/MOD-0 | Flyway migrations run | MOD-0: Foundation | PENDING |
-| MID-019 | Prompt Part 5/MOD-0 | Swagger accessible | MOD-0: Foundation | PENDING |
-| MID-020 | Prompt Part 5/MOD-0 | Health endpoint works | MOD-0: Foundation | PENDING |
+| MID-016 | Prompt Part 5/MOD-0 | Spring Boot application starts | MOD-0: Foundation | COMPLETE |
+| MID-017 | Prompt Part 5/MOD-0 | PostgreSQL connection works | MOD-0: Foundation | COMPLETE |
+| MID-018 | Prompt Part 5/MOD-0 | Flyway migrations run | MOD-0: Foundation | COMPLETE |
+| MID-019 | Prompt Part 5/MOD-0 | Swagger accessible | MOD-0: Foundation | COMPLETE |
+| MID-020 | Prompt Part 5/MOD-0 | Health endpoint works | MOD-0: Foundation | COMPLETE |
 
 ## B. Partner Management Requirements
 
 | Req ID | Source | Requirement | Module | Status |
 |--------|--------|-------------|--------|--------|
-| PM-001 | Prompt MOD-1 | Partner registration | MOD-1: Partner Mgmt | PENDING |
-| PM-002 | Prompt MOD-1 | Partner types (AUTOMOBILE_DEALER, AIRLINE, etc.) | MOD-1: Partner Mgmt | PENDING |
-| PM-003 | Prompt MOD-1 | Partner activation/deactivation | MOD-1: Partner Mgmt | PENDING |
-| PM-004 | Prompt MOD-1 | Insurer registration | MOD-1: Partner Mgmt | PENDING |
-| PM-005 | Prompt MOD-1 | Partner-insurer mapping | MOD-1: Partner Mgmt | PENDING |
-| PM-006 | Prompt MOD-1 | Partner-product mapping | MOD-1: Partner Mgmt | PENDING |
-| PM-007 | Prompt MOD-1 | Supported document types per partner | MOD-1: Partner Mgmt | PENDING |
-| PM-008 | Prompt MOD-1 | Partner administration | MOD-1: Partner Mgmt | PENDING |
+| PM-001 | Prompt MOD-1 | Partner registration | MOD-1: Partner Mgmt | COMPLETE |
+| PM-002 | Prompt MOD-1 | Partner types (AUTOMOBILE_DEALER, AIRLINE, etc.) | MOD-1: Partner Mgmt | COMPLETE |
+| PM-003 | Prompt MOD-1 | Partner activation/deactivation | MOD-1: Partner Mgmt | COMPLETE |
+| PM-004 | Prompt MOD-1 | Insurer registration | MOD-1: Partner Mgmt | COMPLETE |
+| PM-005 | Prompt MOD-1 | Partner-insurer mapping | MOD-1: Partner Mgmt | COMPLETE |
+| PM-006 | Prompt MOD-1 | Partner-product mapping | MOD-1: Partner Mgmt | COMPLETE |
+| PM-007 | Prompt MOD-1 | Supported document types per partner | MOD-1: Partner Mgmt | COMPLETE |
+| PM-008 | Prompt MOD-1 | Partner administration | MOD-1: Partner Mgmt | COMPLETE |
 
 ## C. Authentication and Security Requirements
 
 | Req ID | Source | Requirement | Module | Status |
 |--------|--------|-------------|--------|--------|
-| SEC-001 | Prompt MOD-2 | API client registration | MOD-2: Auth | PENDING |
-| SEC-002 | Prompt MOD-2 | Secure client secret management | MOD-2: Auth | PENDING |
-| SEC-003 | Prompt MOD-2 | OAuth 2.0 Client Credentials | MOD-2: Auth | PENDING |
-| SEC-004 | Prompt MOD-2 | Partner-specific permissions | MOD-2: Auth | PENDING |
-| SEC-005 | Prompt MOD-2 | API scopes | MOD-2: Auth | PENDING |
-| SEC-006 | Prompt MOD-2 | Credential rotation support | MOD-2: Auth | PENDING |
-| SEC-007 | Prompt MOD-2 | Rate limiting | MOD-2: Auth | PENDING |
-| SEC-008 | Prompt Part 9 | SSRF protection | MOD-6: S3 Source | PENDING |
-| SEC-009 | Prompt Part 9 | Approved source host restrictions | MOD-6: S3 Source | PENDING |
+| SEC-001 | Prompt MOD-2 | API client registration | MOD-2: Auth | COMPLETE |
+| SEC-002 | Prompt MOD-2 | Secure client secret management | MOD-2: Auth | COMPLETE |
+| SEC-003 | Prompt MOD-2 | OAuth 2.0 Client Credentials | MOD-2: Auth | COMPLETE |
+| SEC-004 | Prompt MOD-2 | Partner-specific permissions | MOD-2: Auth | COMPLETE |
+| SEC-005 | Prompt MOD-2 | API scopes | MOD-2: Auth | COMPLETE |
+| SEC-006 | Prompt MOD-2 | Credential rotation support | MOD-2: Auth | COMPLETE |
+| SEC-007 | Prompt MOD-2 | Rate limiting | MOD-2: Auth | COMPLETE |
+| SEC-008 | Prompt Part 9 | SSRF protection | MOD-6: S3 Source | VALIDATOR DONE (M2) |
+| SEC-009 | Prompt Part 9 | Approved source host restrictions | MOD-6: S3 Source | VALIDATOR DONE (M2) |
 | SEC-010 | Prompt Part 9 | Never trust partner-supplied destination bucket | MOD-9: Dest S3 | PENDING |
 | SEC-011 | Prompt Part 9 | Webhook signature verification | MOD-11: Notifications | PENDING |
 | SEC-012 | Prompt Part 9 | Idempotency for requests | MOD-3: Ingestion | PENDING |
@@ -75,8 +75,8 @@
 
 | Req ID | Source | Requirement | Module | Status |
 |--------|--------|-------------|--------|--------|
-| AWS-001 | Prompt MOD-6 | Pre-signed S3 URL handling | MOD-6: S3 Source | PENDING |
-| AWS-002 | Prompt MOD-6 | URL expiry handling | MOD-6: S3 Source | PENDING |
+| AWS-001 | Prompt MOD-6 | Pre-signed S3 URL handling | MOD-6: S3 Source | VALIDATOR DONE (M2) |
+| AWS-002 | Prompt MOD-6 | URL expiry handling | MOD-6: S3 Source | VALIDATOR DONE (M2) |
 | AWS-003 | Prompt MOD-6 | MIME type and file signature checks | MOD-6/8 | PENDING |
 | AWS-004 | Prompt MOD-7 | Amazon SQS integration | MOD-7: Async | PENDING |
 | AWS-005 | Prompt MOD-7 | AWS Lambda worker | MOD-7: Async | PENDING |
@@ -85,7 +85,7 @@
 | AWS-008 | Prompt MOD-9 | IAM role-based cross-account access | MOD-9: Dest S3 | PENDING |
 | AWS-009 | Prompt MOD-9 | Post-upload checksum verification | MOD-9: Dest S3 | PENDING |
 | AWS-010 | Prompt MOD-11 | SNS integration | MOD-11: Notifications | PENDING |
-| AWS-011 | Handwriting | API Gateway as front face | MOD-0: Foundation | PENDING |
+| AWS-011 | Handwriting | API Gateway as front face | MOD-0: Foundation | COMPLETE |
 
 ## F. SRS Original Requirements Traceability
 
@@ -96,12 +96,12 @@
 | FR-AUTH-001 | Customer public registration | N/A in middleware | DEFERRED | Belongs to insurer admin system |
 | FR-AUTH-002 | No public admin/agent registration | Platform admin managed internally | DEFERRED | |
 | FR-AUTH-003 | Active users can login | Partner auth active check | ADAPTED | Partner equivalent |
-| FR-AUTH-004 | JWT token generation | OAuth token / JWT for admin | ADAPTED | |
-| FR-AUTH-005 | JWT validation for protected APIs | Token validation filter | IN SCOPE | |
-| FR-AUTH-006 | Reject invalid/expired tokens | Auth filter | IN SCOPE | |
-| FR-AUTH-007 | Role-based access | Partner permissions | ADAPTED | |
-| FR-AUTH-008 | Inactive users blocked | Inactive partner blocked | ADAPTED | |
-| FR-AUTH-009 | Secure password storage | Hashed client secrets | IN SCOPE | |
+| FR-AUTH-004 | JWT token generation | OAuth token / JWT for partner | COMPLETE | RS256 access + refresh tokens |
+| FR-AUTH-005 | JWT validation for protected APIs | JwtAuthenticationFilter | COMPLETE | `/api/v1/partner/**` |
+| FR-AUTH-006 | Reject invalid/expired tokens | JwtAuthenticationFilter | COMPLETE | 401 INVALID_TOKEN / TOKEN_EXPIRED |
+| FR-AUTH-007 | Role-based access | Partner scopes | COMPLETE | read/write/admin |
+| FR-AUTH-008 | Inactive users blocked | Inactive partner/client blocked | COMPLETE | 403 / 401 |
+| FR-AUTH-009 | Secure password storage | BCrypt client secrets | COMPLETE | cost 12, never exposed |
 
 ### F.2 SRS User Management
 
@@ -170,12 +170,12 @@
 
 | AC ID | Criterion | Module | Status |
 |-------|-----------|--------|--------|
-| AC-001 | Application starts | MOD-0 | PENDING |
-| AC-002 | PostgreSQL connection works | MOD-0 | PENDING |
-| AC-003 | Migrations work | MOD-0 | PENDING |
-| AC-004 | Administrator can register partners | MOD-1 | PENDING |
-| AC-005 | Partners can be authenticated | MOD-2 | PENDING |
-| AC-006 | Partner permissions work | MOD-2 | PENDING |
+| AC-001 | Application starts | MOD-0 | COMPLETE |
+| AC-002 | PostgreSQL connection works | MOD-0 | COMPLETE |
+| AC-003 | Migrations work | MOD-0 | COMPLETE |
+| AC-004 | Administrator can register partners | MOD-1 | COMPLETE |
+| AC-005 | Partners can be authenticated | MOD-2 | COMPLETE |
+| AC-006 | Partner permissions work | MOD-2 | COMPLETE |
 | AC-007 | Partners can submit requests | MOD-3 | PENDING |
 | AC-008 | Schema is validated | MOD-4 | PENDING |
 | AC-009 | Missing/invalid tags identified | MOD-4 | PENDING |
@@ -195,7 +195,7 @@
 | AC-023 | Swagger available | MOD-13 | PENDING |
 | AC-024 | Postman tests provided | MOD-13 | PENDING |
 | AC-025 | Unit/integration tests executed | All | PENDING |
-| AC-026 | Security controls tested | MOD-2 | PENDING |
+| AC-026 | Security controls tested | MOD-2 | COMPLETE |
 | AC-027 | Documentation complete | All | PENDING |
 | AC-028 | Setup/deployment instructions work | MOD-0 | PENDING |
 | AC-029 | Final report reflects actual implementation | MOD-13 | PENDING |

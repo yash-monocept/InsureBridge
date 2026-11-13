@@ -1,0 +1,789 @@
+{
+  "info": {
+    "_postman_id": "9f2b6d1e-6a2c-4b7e-8f3a-2c1d0e9b8a71",
+    "name": "Insurance Middleware — Module 2 Authentication",
+    "description": "End-to-end verification of Module 2 (Partner Authentication): OAuth 2.0 Client Credentials, RS256 JWT validation, scopes, secret rotation, rate limiting, client/partner deactivation.\n\nRun against a local instance:\n`npx postman-cli collection run postman/Module-2-Partner-Authentication.postman_collection.json -e postman/Insurance-Integration-Local.postman_environment.json`\n\nPrerequisites: the application is running (default H2 profile) at http://localhost:8080. The admin endpoints are intentionally open in this academic deployment; partner endpoints require a JWT.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "partnerCode", "value": "POSTMAN_BANK" },
+    { "key": "partnerId", "value": "" },
+    { "key": "clientId", "value": "" },
+    { "key": "clientSecret", "value": "" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "rotatedSecret", "value": "" },
+    { "key": "previousSecretValidUntil", "value": "" },
+    { "key": "writeClientId", "value": "" },
+    { "key": "writeClientSecret", "value": "" },
+    { "key": "writeAccessToken", "value": "" },
+    { "key": "rateClientId", "value": "" },
+    { "key": "rateClientSecret", "value": "" },
+    { "key": "rateAccessToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Smoke",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('health endpoint is public and up', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.status).to.eql('UP');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/health", "host": ["{{baseUrl}}"], "path": ["api", "v1", "health"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Credential Provisioning",
+      "item": [
+        {
+          "name": "Create partner",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Unique partner code so the collection can be rerun without a 409.",
+                  "const suffix = String(Date.now()).slice(-8);",
+                  "pm.collectionVariables.set('partnerCode', 'POSTMAN_BANK_' + suffix);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('partner created (201)', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('response wraps partner data', () => {",
+                  "  pm.expect(body.success).to.eql(true);",
+                  "  pm.expect(body.data.partnerCode).to.eql(pm.collectionVariables.get('partnerCode'));",
+                  "  pm.expect(body.data.active).to.eql(true);",
+                  "});",
+                  "pm.collectionVariables.set('partnerId', body.data.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"partnerCode\": \"{{partnerCode}}\",\n  \"partnerName\": \"Postman Authentication Demo Bank\",\n  \"partnerType\": \"BANK\",\n  \"contactEmail\": \"postman-auth@example.com\",\n  \"maxDocumentSizeMb\": 50,\n  \"approvedSourceHosts\": \"[\\\"*.s3.amazonaws.com\\\"]\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/partners", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "partners"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Create API client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API client created (201)', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('secret is returned exactly once, hash never exposed', () => {",
+                  "  pm.expect(body.data.clientId).to.be.a('string').and.not.empty;",
+                  "  pm.expect(body.data.client_secret).to.be.a('string').and.not.empty;",
+                  "  pm.expect(JSON.stringify(body)).to.not.include('clientSecretHash');",
+                  "});",
+                  "pm.test('defaults and scopes are present', () => {",
+                  "  pm.expect(body.data.tokenExpirySeconds).to.eql(3600);",
+                  "  pm.expect(body.data.scopes).to.include('read');",
+                  "  pm.expect(body.data.scopes).to.include('write');",
+                  "});",
+                  "pm.collectionVariables.set('clientId', body.data.clientId);",
+                  "pm.collectionVariables.set('clientSecret', body.data.client_secret);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scopes\": [\"read\", \"write\"],\n  \"tokenExpirySeconds\": 3600,\n  \"rateLimitPerMinute\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/api-clients",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "api-clients"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List API clients (no secret leakage)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('clients listed', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data[0].clientId).to.eql(pm.collectionVariables.get('clientId'));",
+                  "  pm.expect(pm.response.text()).to.not.include('client_secret');",
+                  "  pm.expect(pm.response.text()).to.not.include('$2a$');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/api-clients",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "api-clients"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. OAuth 2.0 Token Flow",
+      "item": [
+        {
+          "name": "Get access token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('token issued (200)', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('OAuth response is well formed', () => {",
+                  "  pm.expect(body.access_token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(body.token_type).to.eql('Bearer');",
+                  "  pm.expect(body.expires_in).to.be.above(0);",
+                  "  pm.expect(body.refresh_token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(body.scopes).to.include('read');",
+                  "});",
+                  "pm.collectionVariables.set('accessToken', body.access_token);",
+                  "pm.collectionVariables.set('refreshToken', body.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{clientId}}\",\n  \"client_secret\": \"{{clientSecret}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Get access token (form-encoded)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('form-encoded client_credentials is accepted', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().access_token).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "client_credentials" },
+                { "key": "client_id", "value": "{{clientId}}" },
+                { "key": "client_secret", "value": "{{clientSecret}}" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('token introspection succeeds', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.partner_code).to.eql(pm.collectionVariables.get('partnerCode'));",
+                  "  pm.expect(body.client_id).to.eql(pm.collectionVariables.get('clientId'));",
+                  "  pm.expect(body.scopes).to.include('read');",
+                  "  pm.expect(body.expires_at).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/verify", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "verify"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh access token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('refresh token exchanges for a new access token', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.access_token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(body.access_token).to.not.eql(pm.collectionVariables.get('accessToken'));",
+                  "  pm.collectionVariables.set('accessToken', body.access_token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "refresh"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. JWT Enforcement",
+      "item": [
+        {
+          "name": "Partner profile with token (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('valid JWT reaches the partner endpoint', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.partnerCode).to.eql(pm.collectionVariables.get('partnerCode'));",
+                  "  pm.expect(body.data.clientId).to.eql(pm.collectionVariables.get('clientId'));",
+                  "  pm.expect(body.data.scopes).to.include('read');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Partner profile without token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('missing token is rejected with 401', () => {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('AUTHENTICATION_REQUIRED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Partner profile with malformed token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('malformed token is rejected with 401', () => {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('INVALID_TOKEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer not-a-jwt" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Token with wrong secret (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('wrong client secret is rejected', () => {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('AUTHENTICATION_FAILED');",
+                  "  pm.expect(pm.response.text()).to.not.include(pm.collectionVariables.get('clientSecret'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{clientId}}\",\n  \"client_secret\": \"definitely-wrong-secret\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Scope Enforcement",
+      "item": [
+        {
+          "name": "Create write-only client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('write-only client created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.data.scopes).to.eql(['write']);",
+                  "pm.collectionVariables.set('writeClientId', body.data.clientId);",
+                  "pm.collectionVariables.set('writeClientSecret', body.data.client_secret);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"scopes\": [\"write\"]\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/api-clients",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "api-clients"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get write-only token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('write-only token issued', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.scopes).to.eql(['write']);",
+                  "pm.collectionVariables.set('writeAccessToken', body.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{writeClientId}}\",\n  \"client_secret\": \"{{writeClientSecret}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Read endpoint with write-only token (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('missing read scope is rejected with 403', () => {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{writeAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Rate Limiting",
+      "item": [
+        {
+          "name": "Create rate-limited client (1/min)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rate-limited client created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.data.rateLimitPerMinute).to.eql(1);",
+                  "pm.collectionVariables.set('rateClientId', body.data.clientId);",
+                  "pm.collectionVariables.set('rateClientSecret', body.data.client_secret);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"scopes\": [\"read\"],\n  \"rateLimitPerMinute\": 1\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/api-clients",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "api-clients"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get rate-limited token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rate-limited token issued', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('rateAccessToken', pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{rateClientId}}\",\n  \"client_secret\": \"{{rateClientSecret}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        },
+        {
+          "name": "First request within limit (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('first request allowed', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.headers.get('X-RateLimit-Limit')).to.eql('1');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{rateAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Second request over limit (429 + Retry-After)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rate limit enforced', () => {",
+                  "  pm.response.to.have.status(429);",
+                  "  pm.expect(pm.response.headers.has('Retry-After')).to.eql(true);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('RATE_LIMIT_EXCEEDED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{rateAccessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Secret Rotation",
+      "item": [
+        {
+          "name": "Rotate main client secret",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('secret rotated', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.client_secret).to.be.a('string').and.not.empty;",
+                  "  pm.expect(body.data.client_secret).to.not.eql(pm.collectionVariables.get('clientSecret'));",
+                  "  pm.expect(body.data.previousSecretValidUntil).to.be.a('string');",
+                  "  pm.collectionVariables.set('rotatedSecret', body.data.client_secret);",
+                  "  pm.collectionVariables.set('previousSecretValidUntil', body.data.previousSecretValidUntil);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/api-clients/{{clientId}}/rotate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "api-clients", "{{clientId}}", "rotate"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "New secret works",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('new secret authenticates', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{clientId}}\",\n  \"client_secret\": \"{{rotatedSecret}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Old secret still works during 24h grace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('previous secret accepted inside the grace window', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{clientId}}\",\n  \"client_secret\": \"{{clientSecret}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Revocation",
+      "item": [
+        {
+          "name": "Deactivate write-only client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API client deactivated', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.active).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/api-clients/{{writeClientId}}/deactivate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "api-clients", "{{writeClientId}}", "deactivate"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivated client cannot get a token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('deactivated client is rejected', () => {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('AUTHENTICATION_FAILED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{writeClientId}}\",\n  \"client_secret\": \"{{writeClientSecret}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate partner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('partner deactivated', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.active).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/deactivate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "deactivate"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivated partner cannot get a token (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('inactive partner is rejected with 403', () => {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('PARTNER_NOT_ACTIVE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{clientId}}\",\n  \"client_secret\": \"{{rotatedSecret}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

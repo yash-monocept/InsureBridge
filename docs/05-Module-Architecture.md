@@ -1,8 +1,8 @@
 # Module Architecture & Implementation Details
 
-**Document Version:** 1.0  
-**Date:** November 12, 2026  
-**Status:** COMPLETED MODULES 0 & 1
+**Document Version:** 2.0  
+**Date:** November 13, 2026  
+**Status:** COMPLETED MODULES 0, 1 & 2
 
 ---
 
@@ -10,7 +10,8 @@
 
 1. [Module 0 — Foundation Layer](#module-0--foundation-layer)
 2. [Module 1 — Partner Management](#module-1--partner-management)
-3. [Completed Modules Summary](#completed-modules-summary)
+3. [Module 2 — Partner Authentication & API Security](#module-2--partner-authentication--api-security)
+4. [Completed Modules Summary](#completed-modules-summary)
 
 ---
 
@@ -359,7 +360,7 @@ public interface PartnerInsurerMappingRepository extends JpaRepository<PartnerIn
 
 #### 6. **Integration Tests**
 
-**PartnerControllerIT** — 18 test cases
+**PartnerControllerIT** — 14 test cases
 
 | Test | Coverage |
 |------|----------|
@@ -378,7 +379,7 @@ public interface PartnerInsurerMappingRepository extends JpaRepository<PartnerIn
 | `createMapping_invalidInsurer_notFound` | 404 for bad insurer |
 | `getMappings_success` | List mappings |
 
-**InsurerControllerIT** — 14 test cases
+**InsurerControllerIT** — 15 test cases
 
 | Test | Coverage |
 |------|----------|
@@ -412,7 +413,7 @@ mvn test -Dtest="!ApplicationContextTest,!*ControllerIT"
 mvn test
 ```
 
-**Result: 21 unit tests + 32 integration tests = 53 total tests**
+**Result: 21 unit tests + 29 integration tests = 50 total tests**
 
 ---
 
@@ -428,14 +429,14 @@ mvn test
 - Exception handling
 - API response structures
 - Logging infrastructure
-- 21 unit tests passing
+- 3 context tests (skipped without Docker) + 1 H2 profile test
 - Executable JAR (76.5 MB)
 - Complete documentation
 
 **Key Metrics:**
 - LOC (Lines of Code): ~2,500
-- Test Coverage: 21 tests, 100% passing
-- Database Tables: 15 entities
+- Test Coverage: 4 context tests (3 skipped without Docker)
+- Database Tables: 15
 - Compilation: Success
 - Build Artifacts: integration-middleware-1.0.0-SNAPSHOT.jar
 
@@ -447,28 +448,28 @@ mvn test
 - 2 REST controllers (Partner, Insurer)
 - 10 endpoints for partner management
 - 6 endpoints for insurer management
-- 10 endpoints for partner-insurer mappings
+- 3 endpoints for partner-insurer mappings
 - Request/response DTOs with validation
 - Service layer (3 services)
 - Repository layer (3 repositories)
-- 32 integration tests
+- 29 integration tests
 - Swagger/OpenAPI documentation
 - Complete controller-layer documentation
 
 **Key Metrics:**
-- REST Endpoints: 26 total
+- REST Endpoints: 16 business endpoints (17 with health)
 - Service Methods: 22 public methods
 - DTOs: 8 classes
-- Integration Tests: 32 test cases
+- Integration Tests: 29 test cases
 - Validation Rules: 15+ constraints
 
 ### COMBINED MODULE 0 + 1 STATUS
 
 | Metric | Value |
 |--------|-------|
-| Total Test Cases | 53 (21 unit + 32 integration) |
+| Total Test Cases | 50 (21 unit + 29 integration) |
 | Test Pass Rate | 100% |
-| REST Endpoints | 26 |
+| REST Endpoints | 16 business (17 with health) |
 | Database Tables | 15 |
 | Flyway Migrations | 9 |
 | Service Methods | 22 |
@@ -477,21 +478,106 @@ mvn test
 
 ---
 
+## MODULE 2 — PARTNER AUTHENTICATION & API SECURITY
+
+**Status:** COMPLETE (November 13, 2026)
+
+### Purpose
+
+Authenticate external distribution partners using OAuth 2.0 Client Credentials,
+issue and validate RS256 JWTs, enforce scoped permissions, rate-limit partner
+traffic, support secret rotation, and block SSRF attempts in partner-supplied
+document URLs.
+
+Detailed design and operations: [`docs/07-Partner-Authentication.md`](07-Partner-Authentication.md).
+
+### Components Implemented
+
+| Component | Location | Responsibility |
+|-----------|----------|----------------|
+| `ApiClient` | `security/entity` | OAuth 2.0 credential record; BCrypt secret hashes only |
+| `ApiClientRepository` | `security/repository` | Client lookup, active filtering, per-partner listing |
+| `ClientCredentialsService` | `security/service` | Credential creation, authentication, rotation, activation |
+| `JwtService` | `security/jwt` | RS256 access/refresh token generation and parsing |
+| `JwtKeyProvider` | `security/jwt` | Loads configured RSA keys; ephemeral dev key pair otherwise |
+| `JwtAuthenticationFilter` | `security/filter` | Validates Bearer tokens for `/api/v1/partner/**`, populates SecurityContext |
+| `RateLimitService` | `security/service` | In-memory sliding-window counters per client |
+| `RateLimitInterceptor` | `security/interceptor` | Returns 429 + `Retry-After` when a partner exceeds its limit |
+| `SsrfValidator` | `security/validator` | Approved-host and private-address validation for document URLs |
+| `AuthController` | `security/controller` | `POST /auth/token` (JSON + form), `/auth/refresh`, `/auth/verify` |
+| `ApiClientAdminController` | `security/controller` | Admin credential lifecycle under `/admin/partners/{id}/api-clients` |
+| `PartnerProfileController` | `security/controller` | `GET /partner/me`, protected by JWT + `SCOPE_read` |
+| `V10__Add_api_client_secret_rotation.sql` | `db/migration` | Adds `previous_secret_hash` to the `api_clients` table created in V2 |
+
+### Authentication Flow
+
+```
+Admin: POST /api/v1/admin/partners                         -> partnerId
+Admin: POST /api/v1/admin/partners/{partnerId}/api-clients -> clientId + clientSecret (once)
+Partner: POST /api/v1/auth/token (client_credentials)      -> access_token + refresh_token
+Partner: GET  /api/v1/partner/me  Authorization: Bearer …  -> 200 profile
+```
+
+1. `ClientCredentialsService.authenticate` looks up the active client and
+   compares the presented secret against the BCrypt hash.
+2. A deactivated client returns 401; a deactivated partner returns 403.
+3. `JwtService` issues an RS256 access token (default 3600s, per-client override)
+   and a refresh token (default 7 days).
+4. On partner requests, `JwtAuthenticationFilter` verifies signature, issuer and
+   expiry, rejects non-access tokens, re-checks partner status, and maps scopes
+   to `SCOPE_*` authorities.
+5. `@PreAuthorize` enforces the required scope; `RateLimitInterceptor` enforces
+   the per-client quota before the controller runs.
+
+### Security Properties
+
+- Client secrets: 256-bit random, URL-safe, BCrypt cost 12, never logged or
+  returned after creation/rotation.
+- Rotation: previous secret is accepted for 24 hours, then permanently invalid.
+- Immediate revocation: deactivating a partner blocks already-issued tokens
+  (status is re-checked per request).
+- SSRF: `http`/`https` only, no userinfo, no non-standard ports, private/
+  loopback/link-local/metadata hosts blocked, host must match
+  `approved_source_hosts` (wildcards match one DNS label).
+- Rate limiting: sliding 60-second window per client id, fail-closed when no
+  principal is present, `X-RateLimit-*` headers on allowed requests.
+
+### Endpoints Added (Module 2)
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| POST | `/api/v1/auth/token` | Public | Client Credentials (JSON or form-encoded) |
+| POST | `/api/v1/auth/refresh` | Public (refresh token) | New access/refresh pair |
+| GET | `/api/v1/auth/verify` | Bearer | Token introspection |
+| GET | `/api/v1/partner/me` | Bearer + `read` | Authenticated partner profile |
+| POST | `/api/v1/admin/partners/{partnerId}/api-clients` | Admin (open in academic build) | Create credentials |
+| GET | `/api/v1/admin/partners/{partnerId}/api-clients` | Admin (open in academic build) | List credential metadata |
+| PUT | `/api/v1/admin/partners/{partnerId}/api-clients/{clientId}/rotate` | Admin (open in academic build) | Rotate secret |
+| PUT | `/api/v1/admin/partners/{partnerId}/api-clients/{clientId}/activate` | Admin (open in academic build) | Activate client |
+| PUT | `/api/v1/admin/partners/{partnerId}/api-clients/{clientId}/deactivate` | Admin (open in academic build) | Deactivate client |
+
+### Test Coverage
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `JwtServiceTest` | 6 | PASS |
+| `ClientCredentialsServiceTest` | 9 | PASS |
+| `RateLimitServiceTest` | 4 | PASS |
+| `SsrfValidatorTest` | 7 | PASS |
+| `PartnerAuthenticationIT` | 21 | PASS |
+| Postman collection | 26 requests / 30 assertions | PASS |
+
+---
+
 ## NEXT MODULES
 
-### MODULE 2 — Partner Authentication & API Security
-- OAuth 2.0 Client Credentials flow
-- JWT token generation and validation
-- API authentication filters
-- Authorization checks
-
-### MODULE 3 — Request Ingestion
+### MODULE 3 - REQUEST INGESTION
 - Partner-facing REST API
 - Insurance request submission
 - Request persistence
 - Idempotency handling
 
-### MODULE 4 — Schema & Tag Validation
+### MODULE 4 - Schema & Tag Validation
 - Configurable validation engine
 - Product-specific schemas
 - Tag/field validation rules

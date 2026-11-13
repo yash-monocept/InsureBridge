@@ -30,8 +30,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-@Testcontainers
-@DisplayName("Module 0 — Application Context Integration Tests")
+@Testcontainers(disabledWithoutDocker = true)
+@DisplayName("Module 0 — Application Context Integration Tests (PostgreSQL/Testcontainers)")
 class ApplicationContextTest {
 
     /**
@@ -54,6 +54,11 @@ class ApplicationContextTest {
         registry.add("spring.datasource.url", postgresContainer::getJdbcUrl);
         registry.add("spring.datasource.username", postgresContainer::getUsername);
         registry.add("spring.datasource.password", postgresContainer::getPassword);
+        // The shared "test" profile defaults to H2; this class intentionally
+        // exercises the real PostgreSQL + Flyway stack.
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
+        registry.add("spring.flyway.enabled", () -> "true");
         // Ensure Flyway clean is allowed in test so reruns work cleanly
         registry.add("spring.flyway.clean-disabled", () -> "false");
     }

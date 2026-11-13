@@ -39,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Transactional
 @DisplayName("PartnerController Integration Tests")
 class PartnerControllerIT {
 
@@ -118,8 +119,8 @@ class PartnerControllerIT {
                 .contentType(APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(validRequest)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("DUPLICATE_RESOURCE"));
+                .andExpect(jsonPath("$.errorType").isNotEmpty())
+                .andExpect(jsonPath("$.errorType").value("DUPLICATE_RESOURCE"));
     }
 
     @Test
@@ -135,7 +136,7 @@ class PartnerControllerIT {
                 .contentType(APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalid)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+                .andExpect(jsonPath("$.errorType").isNotEmpty());
     }
 
     @Test
@@ -148,7 +149,7 @@ class PartnerControllerIT {
                 .contentType(APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(validRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false));
+                .andExpect(jsonPath("$.errorType").isNotEmpty());
     }
 
     // ─── GET /api/v1/admin/partners ────────────────────────────────────
@@ -170,8 +171,8 @@ class PartnerControllerIT {
                 .param("size", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.length()", greaterThan(0)))
-                .andExpect(jsonPath("$.pagination.totalElements", greaterThan(0)));
+                .andExpect(jsonPath("$.records.length()", greaterThan(0)))
+                .andExpect(jsonPath("$.totalRecords", greaterThan(0)));
     }
 
     @Test
@@ -186,7 +187,7 @@ class PartnerControllerIT {
         mockMvc.perform(get("/api/v1/admin/partners")
                 .param("active", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].active").value(true));
+                .andExpect(jsonPath("$.records[0].active").value(true));
     }
 
     @Test
@@ -195,7 +196,7 @@ class PartnerControllerIT {
         mockMvc.perform(get("/api/v1/admin/partners")
                 .param("size", "500"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.pagination.pageSize").value(100));
+                .andExpect(jsonPath("$.pageSize").value(100));
     }
 
     // ─── GET /api/v1/admin/partners/{partnerId} ────────────────────────
@@ -231,8 +232,8 @@ class PartnerControllerIT {
     void getPartner_notFound() throws Exception {
         mockMvc.perform(get("/api/v1/admin/partners/" + UUID.randomUUID()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
+                .andExpect(jsonPath("$.errorType").isNotEmpty())
+                .andExpect(jsonPath("$.errorType").value("NOT_FOUND"));
     }
 
     // ─── PUT /api/v1/admin/partners/{partnerId}/activate ─────────────────
@@ -329,7 +330,7 @@ class PartnerControllerIT {
                 .contentType(APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.success").value(false));
+                .andExpect(jsonPath("$.errorType").isNotEmpty());
     }
 
     // ─── GET /api/v1/admin/partners/{partnerId}/mappings ────────────────

@@ -95,6 +95,7 @@ OAuth 2.0 API client credentials for partners.
 | partner_id | UUID | FK → partners.id NOT NULL | |
 | client_id | VARCHAR(100) | UNIQUE NOT NULL | Public client identifier |
 | client_secret_hash | VARCHAR(500) | NOT NULL | BCrypt hashed secret |
+| previous_secret_hash | VARCHAR(500) | | Previous secret, valid only during the 24h rotation grace window |
 | scopes | TEXT | NOT NULL | JSON array of permitted scopes |
 | token_expiry_seconds | INTEGER | DEFAULT 3600 | Token validity |
 | rate_limit_per_minute | INTEGER | DEFAULT 100 | Rate limit |
@@ -391,12 +392,12 @@ ingestion_requests ──1── outbox_events
 | Version | File | Contents |
 |---------|------|---------|
 | V1 | V1__Create_partners_insurers.sql | partners, insurers tables |
-| V2 | V2__Create_partner_insurer_mapping.sql | partner_insurer_mappings |
-| V3 | V3__Create_api_clients.sql | api_clients |
-| V4 | V4__Create_schema_engine.sql | product_schemas, field_rules, document_rules |
-| V5 | V5__Create_ingestion.sql | ingestion_requests, ingestion_documents |
-| V6 | V6__Create_transfer.sql | transfer_jobs, destination_documents, document_validations |
-| V7 | V7__Create_notifications.sql | webhook_events |
-| V8 | V8__Create_audit_outbox.sql | audit_events, outbox_events |
-| V9 | V9__Seed_insurers.sql | Seed Max Life, Axis Max Life, Care Health |
-| V10 | V10__Seed_product_schemas.sql | Motor, Travel, Health base schemas |
+| V2 | V2__Create_partner_insurer_mapping.sql | partner_insurer_mappings, api_clients |
+| V3 | V3__Create_schema_engine.sql | product_schemas, schema_versions, field_rules, document_rules |
+| V4 | V4__Create_ingestion.sql | ingestion_requests, ingestion_documents |
+| V5 | V5__Create_transfer.sql | transfer_jobs, destination_documents, document_validations |
+| V6 | V6__Create_notifications.sql | webhook_events |
+| V7 | V7__Create_audit_outbox.sql | audit_events, outbox_events |
+| V8 | V8__Seed_insurers.sql | Seed Max Life, Axis Max Life, Care Health |
+| V9 | V9__Seed_product_schemas.sql | Motor, Travel, Health, Loan base schemas |
+| V10 | V10__Add_api_client_secret_rotation.sql | Adds `previous_secret_hash` to `api_clients` (Module 2 rotation grace window) |

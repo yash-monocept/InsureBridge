@@ -198,6 +198,47 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
+    @ExceptionHandler(com.insurance.integration.common.exception.InsufficientScopeException.class)
+    public ResponseEntity<ApiError> handleInsufficientScope(
+            com.insurance.integration.common.exception.InsufficientScopeException ex,
+            HttpServletRequest request) {
+
+        log.warn("Insufficient scope at {}: {}", request.getRequestURI(), ex.getMessage());
+
+        ApiError error = ApiError.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.FORBIDDEN.value())
+                .errorType("INSUFFICIENT_SCOPE")
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
+
+    // ============================================================
+    // 429 Too Many Requests
+    // ============================================================
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ApiError> handleRateLimitExceeded(
+            RateLimitExceededException ex, HttpServletRequest request) {
+
+        log.warn("Rate limit exceeded at {}", request.getRequestURI());
+
+        ApiError error = ApiError.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.TOO_MANY_REQUESTS.value())
+                .errorType("RATE_LIMIT_EXCEEDED")
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(error);
+    }
+
     // ============================================================
     // 404 Not Found
     // ============================================================

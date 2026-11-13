@@ -60,6 +60,43 @@ Health check: `http://localhost:8080/api/v1/health`
 The default `h2` profile creates the JPA schema automatically for local API testing.
 Use a PostgreSQL profile and its configured migrations for persistent data.
 
+### Authenticate as a partner (Module 2)
+
+```bash
+# 1. Register a partner (admin API)
+curl -X POST http://localhost:8080/api/v1/admin/partners \
+  -H "Content-Type: application/json" \
+  -d '{"partnerCode":"DEMO_BANK","partnerName":"Demo Bank","partnerType":"BANK","contactEmail":"demo@bank.example"}'
+
+# 2. Issue OAuth 2.0 credentials for that partner (id from step 1)
+curl -X POST http://localhost:8080/api/v1/admin/partners/{partnerId}/api-clients \
+  -H "Content-Type: application/json" \
+  -d '{"scopes":["read","write"]}'
+
+# 3. Exchange the credentials for a JWT
+curl -X POST http://localhost:8080/api/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"grant_type":"client_credentials","client_id":"cli_...","client_secret":"..."}'
+
+# 4. Call a partner endpoint with the token
+curl http://localhost:8080/api/v1/partner/me \
+  -H "Authorization: Bearer <access_token>"
+```
+
+`client_secret` is returned only when credentials are created or rotated. See
+[`docs/07-Partner-Authentication.md`](docs/07-Partner-Authentication.md) and
+[`docs/08-API-Documentation.md`](docs/08-API-Documentation.md).
+
+### Postman
+
+Import the Module 2 collection and environment from `postman/`, then run:
+
+```bash
+npx postman-cli collection run \
+  postman/Module-2-Partner-Authentication.postman_collection.json \
+  -e postman/Insurance-Integration-Local.postman_environment.json
+```
+
 ---
 
 ## Project Structure
@@ -97,7 +134,7 @@ scripts/             # Utility scripts
 | 04 | System Architecture |
 | 05 | Module Architecture |
 | 06 | Database Design |
-| 07 | ER Diagram |
+| 07 | Partner Authentication (Module 2) |
 | 08 | API Documentation |
 | 09 | Partner Integration Guide |
 | 10 | AWS Architecture |

@@ -1,5 +1,9 @@
 package com.insurance.integration.config;
 
+import com.insurance.integration.security.filter.JwtAuthenticationFilter;
+import com.insurance.integration.security.handler.RestAccessDeniedHandler;
+import com.insurance.integration.security.handler.RestAuthenticationEntryPoint;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,38 +15,49 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
  * Spring Security configuration.
  *
- * Module 0 — foundation configuration.
- * Full JWT filter and partner authentication will be added in Module 2.
- * This configuration permits public access to Swagger, actuator, and the auth endpoint.
- * All partner API endpoints will be secured in Module 2.
+ * <p>Module 2 adds stateless JWT authentication for partner APIs:</p>
+ * <ul>
+ *   <li>{@code /api/v1/auth/**} — public OAuth 2.0 token endpoints.</li>
+ *   <li>{@code /api/v1/partner/**} — requires a valid RS256 JWT; the
+ *       {@link JwtAuthenticationFilter} populates the SecurityContext and
+ *       scope checks are enforced with {@code @PreAuthorize}.</li>
+ *   <li>{@code /api/v1/admin/**} — admin console APIs. These remain open in
+ *       the academic deployment because platform-admin authentication is out
+ *       of Module 2 scope; they must be locked down before production.</li>
+ * </ul>
  */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 @Slf4j
 public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {
-            // Swagger UI
+            // Swagger UI / OpenAPI
             "/swagger-ui.html",
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/v3/api-docs",
             // Spring Actuator
             "/actuator/**",
-            // Auth endpoint
+            // OAuth 2.0 token endpoints
             "/api/v1/auth/**",
             // Application health check (public — used by load balancers and API gateways)
             "/api/v1/health",
-            // Admin and partner APIs — temporarily open until Module 2 JWT filter is added.
-            // TODO Module 2: Remove these and enforce JWT for all /api/** endpoints.
+            // Admin APIs — platform-admin authentication is outside Module 2 scope.
+            // TODO: protect with a separate admin identity provider before production.
             "/api/v1/admin/**",
-            "/api/v1/partner/**",
     };
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RestAuthenticationEntryPoint authenticationEntryPoint;
+    private final RestAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -54,17 +69,26 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // Permit public endpoints; secure everything else
+                // Consistent JSON errors for filter-chain rejections
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
+
+                // Public endpoints; partner APIs require JWT; everything else authenticated
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_PATHS).permitAll()
+                        .requestMatchers("/api/v1/partner/**").authenticated()
                         .anyRequest().authenticated()
                 )
+
+                // JWT filter runs before username/password authentication
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
                 // Disable form login and HTTP basic for REST API
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable);
 
-        log.debug("Security filter chain configured (Module 0 foundation — JWT filter added in Module 2)");
+        log.info("Security filter chain configured: JWT authentication active for /api/v1/partner/**");
 
         return http.build();
     }
