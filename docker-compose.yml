@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    container_name: rider-postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rider
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rider
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rider"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    container_name: insurance-integration-middleware
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/insurance_integration
+      DB_USERNAME: rider
+      DB_PASSWORD: rider
+      SPRING_PROFILES_ACTIVE: default
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
