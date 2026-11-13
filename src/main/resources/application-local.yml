@@ -14,20 +14,24 @@
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/insurance_integration
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5433/insurance_integration
+    username: rider
+    password: rider
+    driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
 
   jpa:
     show-sql: true
+    hibernate:
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
 
   flyway:
+    enabled: true
     clean-disabled: false     # Allow Flyway clean in local development ONLY — never in production
 
 # ============================================================

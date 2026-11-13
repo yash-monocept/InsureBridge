@@ -5,6 +5,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Docker must be available for this test to run.
  */
 @SpringBootTest
+@ActiveProfiles("test")
 @Testcontainers
 @DisplayName("Module 0 — Application Context Integration Tests")
 class ApplicationContextTest {

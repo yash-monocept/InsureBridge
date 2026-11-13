@@ -44,29 +44,21 @@ and with full auditability.
 
 - Java 21+
 - Maven 3.9+
-- PostgreSQL 15+
-- Docker (for LocalStack)
+- PostgreSQL 15+ (only if using PostgreSQL instead of the default H2 profile)
+- Docker (optional; for LocalStack)
 
 ### Local Setup
 
 ```bash
-# 1. Copy environment file
-cp .env.example .env
-# Edit .env with your local PostgreSQL credentials
-
-# 2. Start LocalStack (for S3, SQS, SNS)
-docker-compose -f infrastructure/docker/docker-compose.yml up -d
-
-# 3. Build and run
-mvn clean install
+# Run with the default in-memory H2 database (data is lost on restart)
 mvn spring-boot:run
-
-# 4. Access Swagger
-open http://localhost:8080/swagger-ui.html
-
-# 5. Health check
-curl http://localhost:8080/actuator/health
 ```
+
+Swagger UI: `http://localhost:8080/swagger-ui.html`
+Health check: `http://localhost:8080/api/v1/health`
+
+The default `h2` profile creates the JPA schema automatically for local API testing.
+Use a PostgreSQL profile and its configured migrations for persistent data.
 
 ---
 

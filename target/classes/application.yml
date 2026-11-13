@@ -7,6 +7,8 @@
 # ============================================================
 
 spring:
+  profiles:
+    default: h2
   application:
     name: insurance-integration-middleware
 
@@ -14,10 +16,10 @@ spring:
   # DATABASE
   # ========================
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/insurance_integration}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
+    url: ${DB_URL:jdbc:h2:mem:insurance;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
+    username: postgres
+    password: postgres
+    driver-class-name: org.h2.Driver
     hikari:
       connection-timeout: 30000
       maximum-pool-size: 10
@@ -25,17 +27,16 @@ spring:
       idle-timeout: 600000
       max-lifetime: 1800000
       pool-name: InsuranceIntegrationPool
+      auto-commit: true
 
   # ========================
   # JPA
   # ========================
   jpa:
     hibernate:
-      ddl-auto: validate      # Flyway manages schema — never allow Hibernate to alter it
-    show-sql: false
+      ddl-auto: validate  # Flyway manages the schema for PostgreSQL
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         default_schema: public
         jdbc:
@@ -134,6 +135,8 @@ logging:
     org.springframework.security: WARN
     org.hibernate.SQL: WARN
     org.flywaydb: INFO
+    org.springframework.boot.autoconfigure.jdbc: DEBUG
+    com.zaxxer.hikari: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId:-}] [%X{partnerId:-}] %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId:-}] [%X{partnerId:-}] %logger{36} - %msg%n"
@@ -195,12 +198,18 @@ spring:
       on-profile: local
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/insurance_integration
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:5433/insurance_integration
+    username: rider
+    password: rider
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     show-sql: true
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
 
 aws:
   use-localstack: true
@@ -221,11 +230,18 @@ spring:
     activate:
       on-profile: test
 
-  flyway:
-    clean-disabled: false   # Allow clean in tests only
+  datasource:
+    driver-class-name: org.postgresql.Driver
 
   jpa:
+    hibernate:
+      ddl-auto: validate
+
     show-sql: false
+
+  flyway:
+    enabled: true
+    clean-disabled: false   # Allow clean in tests only
 
 logging:
   level:
