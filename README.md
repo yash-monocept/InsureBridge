@@ -56,9 +56,16 @@ mvn spring-boot:run
 
 Swagger UI: `http://localhost:8080/swagger-ui.html`
 Health check: `http://localhost:8080/api/v1/health`
+Operations console: `http://localhost:8080/`
 
 The default `h2` profile creates the JPA schema automatically for local API testing.
 Use a PostgreSQL profile and its configured migrations for persistent data.
+
+The operations console covers the implemented partner, insurer, partner-insurer
+mapping, API-client, and partner-authentication endpoints. The default H2 database
+is in-memory, so locally created data and credentials are cleared when the app stops.
+API-client secrets are displayed only at creation or rotation and are kept in the
+browser page's memory only.
 
 ### Authenticate as a partner (Module 2)
 
@@ -82,6 +89,20 @@ curl -X POST http://localhost:8080/api/v1/auth/token \
 curl http://localhost:8080/api/v1/partner/me \
   -H "Authorization: Bearer <access_token>"
 ```
+
+### Authentication endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/v1/auth/token` | Exchange client credentials for access and refresh tokens (JSON or form-encoded) |
+| POST | `/api/v1/auth/refresh` | Exchange a refresh token for a new token pair |
+| GET | `/api/v1/auth/verify` | Inspect a valid access token (`Authorization: Bearer <access_token>`) |
+| GET | `/api/v1/partner/me` | Test protected partner access; requires a JWT with `read` or `admin` scope |
+
+First register a partner, then create an API client using
+`POST /api/v1/admin/partners/{partnerId}/api-clients`. The admin endpoints are
+intentionally unauthenticated in this academic build; protect them before any
+public or production deployment.
 
 `client_secret` is returned only when credentials are created or rotated. See
 [`docs/07-Partner-Authentication.md`](docs/07-Partner-Authentication.md) and

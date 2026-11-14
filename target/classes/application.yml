@@ -163,9 +163,22 @@ aws:
 # ========================
 app:
   security:
-    jwt-secret: ${JWT_SECRET:REPLACE_THIS_WITH_A_SECURE_256_BIT_SECRET_IN_PRODUCTION}
+    jwt:
+      # Issuer embedded in every token and required during validation.
+      issuer: ${JWT_ISSUER:insurance-integration-middleware}
+      # RS256 signing keys (PKCS#8 private key / X.509 public key, PEM).
+      # Leave empty for local development: an ephemeral key pair is generated
+      # and tokens are invalidated on restart. ALWAYS configure these in production.
+      private-key: ${JWT_PRIVATE_KEY:}
+      public-key: ${JWT_PUBLIC_KEY:}
+      # Kept for backward compatibility with earlier configuration.
+      refresh-expiry-seconds: ${JWT_REFRESH_EXPIRY_SECONDS:604800}
+    # Access-token lifetime default (seconds); per-client override allowed 60–86400.
     jwt-expiry-seconds: ${JWT_EXPIRY_SECONDS:3600}
     admin-token-expiry-seconds: ${ADMIN_JWT_EXPIRY_SECONDS:86400}
+    # Legacy HMAC secret retained for environments that still set it; Module 2
+    # issues RS256 tokens and does not use this value.
+    jwt-secret: ${JWT_SECRET:}
 
   document:
     max-size-mb: ${DOC_MAX_SIZE_MB:50}
@@ -187,6 +200,7 @@ app:
 
   rate-limit:
     default-per-minute: ${RATE_LIMIT_PER_MINUTE:100}
+    window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}
 
 ---
 # ========================
@@ -230,18 +244,21 @@ spring:
     activate:
       on-profile: test
 
+  # Integration tests run against a dedicated in-memory H2 database so the
+  # suite is hermetic and does not require Docker/PostgreSQL.
   datasource:
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:h2:mem:insurance_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
 
   jpa:
     hibernate:
-      ddl-auto: validate
-
+      ddl-auto: create-drop
     show-sql: false
 
   flyway:
-    enabled: true
-    clean-disabled: false   # Allow clean in tests only
+    enabled: false
 
 logging:
   level:

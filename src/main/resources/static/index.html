@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7f6">
+  <title>InsureBridge | Operations Console</title>
+  <link rel="stylesheet" href="/console.css">
+  <script src="/console.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="InsureBridge home">
+        <span class="brand-mark">IB</span>
+        <span><strong>InsureBridge</strong><small>OPERATIONS CONSOLE</small></span>
+      </a>
+      <div class="nav-label">WORKSPACE</div>
+      <nav class="navigation" aria-label="Main navigation">
+        <button class="nav-link active" data-page="overview"><span class="nav-icon">◫</span>Overview</button>
+        <button class="nav-link" data-page="partners"><span class="nav-icon">◉</span>Partners</button>
+        <button class="nav-link" data-page="insurers"><span class="nav-icon">⬡</span>Insurers</button>
+        <button class="nav-link" data-page="clients"><span class="nav-icon">⌘</span>API clients</button>
+        <button class="nav-link" data-page="auth"><span class="nav-icon">⌑</span>Auth playground</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="security-note">
+          <span class="note-icon">!</span>
+          <div><strong>Development access</strong><p>Admin routes are open in this academic build. Do not expose publicly.</p></div>
+        </div>
+        <a class="docs-link" href="/swagger-ui.html" target="_blank" rel="noreferrer">Open API documentation <span>↗</span></a>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>Workspace</span><b>/</b><strong id="breadcrumb-current">Overview</strong></div>
+        <div class="topbar-right">
+          <span class="environment"><i class="status-dot" id="health-dot"></i><span id="health-label">Checking API</span></span>
+          <button class="icon-button" id="refresh-health" title="Refresh API health" aria-label="Refresh API health">↻</button>
+        </div>
+      </header>
+
+      <section class="page active" id="page-overview">
+        <div class="page-heading">
+          <div><div class="eyebrow">INSURANCE INTEGRATION PLATFORM</div><h1>Good to see you.</h1><p>Manage partner connections, insurer destinations, and credentials from one place.</p></div>
+          <button class="button button-primary" data-navigate="partners">＋ &nbsp;Add a partner</button>
+        </div>
+        <div class="stat-grid">
+          <article class="stat-card"><div class="stat-top"><span>API status</span><span class="stat-icon green">↗</span></div><strong id="overview-health">—</strong><small id="overview-health-caption">Checking service health</small></article>
+          <article class="stat-card"><div class="stat-top"><span>Partners</span><span class="stat-icon blue">◉</span></div><strong id="overview-partners">—</strong><small>Registered distribution partners</small></article>
+          <article class="stat-card"><div class="stat-top"><span>Insurers</span><span class="stat-icon purple">⬡</span></div><strong id="overview-insurers">—</strong><small>Registered insurance providers</small></article>
+          <article class="stat-card"><div class="stat-top"><span>API clients</span><span class="stat-icon amber">⌘</span></div><strong id="overview-clients">—</strong><small>Across the selected partners</small></article>
+        </div>
+        <div class="overview-grid">
+          <article class="panel">
+            <div class="panel-heading"><div><h2>Quick actions</h2><p>Common setup and verification tasks</p></div></div>
+            <div class="quick-actions">
+              <button class="quick-action" data-navigate="partners"><span class="quick-icon blue">◉</span><span><strong>Register a partner</strong><small>Create a distribution partner profile</small></span><b>→</b></button>
+              <button class="quick-action" data-navigate="insurers"><span class="quick-icon purple">⬡</span><span><strong>Add an insurer</strong><small>Configure an insurance provider</small></span><b>→</b></button>
+              <button class="quick-action" data-navigate="clients"><span class="quick-icon amber">⌘</span><span><strong>Issue API credentials</strong><small>Create a client ID and one-time secret</small></span><b>→</b></button>
+              <button class="quick-action" data-navigate="auth"><span class="quick-icon green">⌑</span><span><strong>Test authentication</strong><small>Get a JWT and check protected access</small></span><b>→</b></button>
+            </div>
+          </article>
+          <article class="panel api-panel">
+            <div class="panel-heading"><div><h2>Authentication endpoints</h2><p>Routes available to test in Postman</p></div><span class="tag tag-green">MODULE 2</span></div>
+            <div class="endpoint-list">
+              <div><span class="method method-post">POST</span><code>/api/v1/auth/token</code><small>Issue access + refresh tokens</small></div>
+              <div><span class="method method-post">POST</span><code>/api/v1/auth/refresh</code><small>Exchange a refresh token</small></div>
+              <div><span class="method method-get">GET</span><code>/api/v1/auth/verify</code><small>Verify access-token claims</small></div>
+              <div><span class="method method-get">GET</span><code>/api/v1/partner/me</code><small>JWT + <code>read</code> scope required</small></div>
+            </div>
+            <button class="text-button" data-navigate="auth">Open authentication playground <span>→</span></button>
+          </article>
+        </div>
+        <div class="notice notice-info"><span>i</span><div><strong>What’s available</strong><p>This console covers the 26 routes currently implemented (health, partner and insurer management, API clients, and partner authentication). Request-ingestion endpoints are not implemented yet.</p></div></div>
+      </section>
+
+      <section class="page" id="page-partners">
+        <div class="page-heading">
+          <div><div class="eyebrow">DIRECTORY</div><h1>Partners</h1><p>Register and manage the distribution partners integrated with InsureBridge.</p></div>
+          <button class="button button-primary" id="open-create-partner">＋ &nbsp;Add partner</button>
+        </div>
+        <article class="panel">
+          <div class="toolbar">
+            <div class="search-wrap"><span>⌕</span><input id="partner-search" type="search" placeholder="Search by name or code"></div>
+            <select id="partner-type-filter" aria-label="Filter by partner type"><option value="">All partner types</option><option>AUTOMOBILE_DEALER</option><option>AIRLINE</option><option>RAILWAY</option><option>BANK</option><option>FINANCIAL_INSTITUTION</option><option>TRAVEL_PLATFORM</option><option>ECOMMERCE</option><option>OTHER</option></select>
+            <select id="partner-active-filter" aria-label="Filter by active status"><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select>
+            <button class="button button-secondary" id="load-partners">Refresh</button>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>PARTNER</th><th>TYPE</th><th>CONTACT</th><th>STATUS</th><th>MAX DOC</th><th></th></tr></thead><tbody id="partners-table"><tr><td colspan="6" class="empty-state">Loading partners…</td></tr></tbody></table></div>
+          <div class="table-footer"><span id="partners-count">—</span><div class="pager"><button class="button button-quiet" id="partners-prev">← Previous</button><span id="partners-page">Page 1</span><button class="button button-quiet" id="partners-next">Next →</button></div></div>
+        </article>
+        <div class="subheading"><div><h2>Find a partner</h2><p>Look up a partner by UUID or business code.</p></div></div>
+        <article class="panel lookup-panel"><select id="partner-lookup-kind" aria-label="Partner lookup type"><option value="code">Business code</option><option value="id">Partner UUID</option></select><input id="partner-lookup-value" placeholder="e.g. POSTMAN_DEMO"><button class="button button-secondary" id="partner-lookup">Find partner</button><pre class="result-box hidden" id="partner-lookup-result"></pre></article>
+        <div class="subheading hidden" id="partner-mappings-panel">
+          <div class="mapping-heading"><div><h2 id="mapping-partner-title">Partner insurer mappings</h2><p id="mapping-partner-subtitle"></p></div><button class="icon-button" id="close-mappings" aria-label="Close mappings">×</button></div>
+          <article class="panel">
+            <div class="mapping-create">
+              <label class="field"><span>Insurer code</span><input id="mapping-insurer-code" placeholder="e.g. MAX_LIFE"></label>
+              <label class="field"><span>Permitted product types (optional JSON array)</span><input id="mapping-products" placeholder='["LIFE","HEALTH"]'></label>
+              <button class="button button-primary align-end" id="create-mapping">＋ Add mapping</button>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>INSURER CODE</th><th>PERMITTED PRODUCTS</th><th>STATUS</th><th></th></tr></thead><tbody id="mappings-table"></tbody></table></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="page" id="page-insurers">
+        <div class="page-heading">
+          <div><div class="eyebrow">DESTINATIONS</div><h1>Insurers</h1><p>Manage insurance providers that receive partner submissions.</p></div>
+          <button class="button button-primary" id="open-create-insurer">＋ &nbsp;Add insurer</button>
+        </div>
+        <article class="panel">
+          <div class="toolbar">
+            <select id="insurer-type-filter" aria-label="Filter by insurer type"><option value="">All insurer types</option><option>LIFE</option><option>HEALTH</option><option>MOTOR</option><option>TRAVEL</option><option>GENERAL</option></select>
+            <select id="insurer-active-filter" aria-label="Filter by active status"><option value="">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select>
+            <button class="button button-secondary" id="load-insurers">Refresh</button>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>INSURER</th><th>TYPE</th><th>CONTACT</th><th>STATUS</th><th>DESTINATION</th><th></th></tr></thead><tbody id="insurers-table"><tr><td colspan="6" class="empty-state">Loading insurers…</td></tr></tbody></table></div>
+          <div class="table-footer"><span id="insurers-count">—</span><div class="pager"><button class="button button-quiet" id="insurers-prev">← Previous</button><span id="insurers-page">Page 1</span><button class="button button-quiet" id="insurers-next">Next →</button></div></div>
+        </article>
+        <div class="subheading"><div><h2>Find an insurer</h2><p>Look up an insurer by UUID or business code.</p></div></div>
+        <article class="panel lookup-panel"><select id="insurer-lookup-kind" aria-label="Insurer lookup type"><option value="code">Business code</option><option value="id">Insurer UUID</option></select><input id="insurer-lookup-value" placeholder="e.g. MAX_LIFE"><button class="button button-secondary" id="insurer-lookup">Find insurer</button><pre class="result-box hidden" id="insurer-lookup-result"></pre></article>
+      </section>
+
+      <section class="page" id="page-clients">
+        <div class="page-heading">
+          <div><div class="eyebrow">CREDENTIAL LIFECYCLE</div><h1>Partner API clients</h1><p>Create OAuth credentials, manage access, and rotate client secrets.</p></div>
+        </div>
+        <div class="notice notice-warning"><span>!</span><div><strong>Keep secrets private</strong><p>A client secret is shown only once when created or rotated. Copy it now; this console keeps it in memory only until you leave the page or refresh.</p></div></div>
+        <article class="panel">
+          <div class="panel-heading"><div><h2>Select a partner</h2><p>API clients are issued to a partner.</p></div></div>
+          <div class="toolbar client-toolbar"><select id="client-partner-select" aria-label="Partner for API clients"><option value="">Select a partner</option></select><button class="button button-secondary" id="load-clients">Load clients</button></div>
+          <div class="client-create-row">
+            <label class="field"><span>Scopes</span><div class="checkbox-row"><label><input type="checkbox" name="scope" value="read" checked> read</label><label><input type="checkbox" name="scope" value="write" checked> write</label><label><input type="checkbox" name="scope" value="admin"> admin</label></div></label>
+            <label class="field"><span>Token lifetime (seconds)</span><input id="client-expiry" type="number" min="60" max="86400" value="3600"></label>
+            <label class="field"><span>Rate limit / minute</span><input id="client-rate-limit" type="number" min="1" max="10000" value="100"></label>
+            <button class="button button-primary align-end" id="create-client">＋ Issue credentials</button>
+          </div>
+          <div id="client-secret-banner" class="secret-banner hidden"></div>
+          <div class="table-wrap"><table><thead><tr><th>CLIENT ID</th><th>SCOPES</th><th>RATE LIMIT</th><th>STATUS</th><th>CREATED</th><th></th></tr></thead><tbody id="clients-table"><tr><td colspan="6" class="empty-state">Select a partner to load clients.</td></tr></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="page" id="page-auth">
+        <div class="page-heading">
+          <div><div class="eyebrow">OAUTH 2.0 · CLIENT CREDENTIALS</div><h1>Authentication playground</h1><p>Request a JWT, inspect claims, refresh it, and call a protected partner endpoint.</p></div>
+          <span class="tag tag-green">RS256 BEARER TOKEN</span>
+        </div>
+        <div class="auth-layout">
+          <div class="auth-main">
+            <article class="panel">
+              <div class="panel-heading step-heading"><span class="step-number">01</span><div><h2>Get an access token</h2><p>Use credentials from API Clients. Secret values are not persisted.</p></div></div>
+              <div class="form-grid">
+                <label class="field"><span>Client ID</span><input id="auth-client-id" autocomplete="off" placeholder="cli_…"></label>
+                <label class="field"><span>Client secret</span><input id="auth-client-secret" type="password" autocomplete="new-password" placeholder="One-time client secret"></label>
+                <label class="field"><span>Token request format</span><select id="auth-format"><option value="json">JSON</option><option value="form">Form URL-encoded (OAuth)</option></select></label>
+                <div class="field"><span>Grant type</span><input value="client_credentials" readonly></div>
+              </div>
+              <div class="form-actions"><button class="button button-primary" id="request-token">Request token</button><button class="button button-quiet" id="clear-auth">Clear session</button></div>
+              <div class="token-result hidden" id="token-result"><div class="token-meta"><span class="tag tag-green">TOKEN ISSUED</span><span id="token-expiry-label"></span></div><label class="field"><span>Access token</span><textarea id="access-token-output" rows="3" readonly></textarea></label><div class="form-actions"><button class="button button-secondary" id="copy-token">Copy token</button><span class="muted" id="token-scopes"></span></div></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading step-heading"><span class="step-number">02</span><div><h2>Verify protected access</h2><p>Verification inspects JWT claims; profile access also checks the <code>read</code> scope.</p></div></div>
+              <div class="button-row"><button class="button button-secondary" id="verify-token">GET &nbsp;/api/v1/auth/verify</button><button class="button button-secondary" id="load-profile">GET &nbsp;/api/v1/partner/me</button></div>
+              <pre class="result-box hidden" id="auth-result"></pre>
+            </article>
+            <article class="panel">
+              <div class="panel-heading step-heading"><span class="step-number">03</span><div><h2>Refresh the session</h2><p>Exchange the refresh token returned with the access token.</p></div></div>
+              <button class="button button-secondary" id="refresh-token">POST &nbsp;/api/v1/auth/refresh</button>
+            </article>
+          </div>
+          <aside class="panel auth-reference">
+            <h2>Authentication routes</h2><p>These are the endpoints you can test with Postman.</p>
+            <div class="endpoint-list compact">
+              <div><span class="method method-post">POST</span><code>/api/v1/auth/token</code><small>JSON or form: <code>grant_type</code>, <code>client_id</code>, <code>client_secret</code></small></div>
+              <div><span class="method method-post">POST</span><code>/api/v1/auth/refresh</code><small>JSON body: <code>{"refresh_token":"…"}</code></small></div>
+              <div><span class="method method-get">GET</span><code>/api/v1/auth/verify</code><small>Header: <code>Authorization: Bearer &lt;access_token&gt;</code></small></div>
+              <div><span class="method method-get">GET</span><code>/api/v1/partner/me</code><small>Bearer token with <code>read</code> (or <code>admin</code>) scope</small></div>
+            </div>
+            <div class="notice notice-info small-notice"><span>i</span><p>First create a partner, then issue a client with <code>read</code> and <code>write</code> scopes on the API Clients page.</p></div>
+            <a class="text-button" href="/swagger-ui.html" target="_blank" rel="noreferrer">Open Swagger UI ↗</a>
+          </aside>
+        </div>
+      </section>
+
+      <footer class="footer"><span>InsureBridge · Integration Middleware</span><span>Local development console · API v1</span></footer>
+    </main>
+  </div>
+
+  <dialog id="partner-dialog" class="form-dialog">
+    <form method="dialog" id="partner-form">
+      <div class="dialog-heading"><div><div class="eyebrow" id="partner-dialog-eyebrow">NEW PARTNER</div><h2 id="partner-dialog-title">Register a partner</h2></div><button class="icon-button" value="cancel" aria-label="Close dialog">×</button></div>
+      <div class="form-grid">
+        <label class="field"><span>Partner code *</span><input id="partner-code" required pattern="[A-Z0-9_]{3,50}" placeholder="e.g. NORTHSTAR_BANK"></label>
+        <label class="field"><span>Partner name *</span><input id="partner-name" required minlength="2" maxlength="200" placeholder="Organization name"></label>
+        <label class="field"><span>Partner type *</span><select id="partner-type" required><option value="">Select type</option><option>AUTOMOBILE_DEALER</option><option>AIRLINE</option><option>RAILWAY</option><option>BANK</option><option>FINANCIAL_INSTITUTION</option><option>TRAVEL_PLATFORM</option><option>ECOMMERCE</option><option>OTHER</option></select></label>
+        <label class="field"><span>Contact email *</span><input id="partner-email" type="email" required placeholder="integrations@example.com"></label>
+        <label class="field"><span>Contact phone</span><input id="partner-phone" maxlength="20" placeholder="+1 555 0100"></label>
+        <label class="field"><span>Website</span><input id="partner-website" type="url" placeholder="https://example.com"></label>
+        <label class="field"><span>Maximum document size (MB)</span><input id="partner-max-size" type="number" min="1" max="100" value="50"></label>
+        <label class="field field-wide"><span>Description</span><textarea id="partner-description" rows="2" maxlength="2000" placeholder="Integration use case"></textarea></label>
+      </div>
+      <div class="dialog-error hidden" id="partner-form-error"></div>
+      <div class="form-actions"><button class="button button-quiet" value="cancel">Cancel</button><button class="button button-primary" id="save-partner" value="default">Create partner</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="insurer-dialog" class="form-dialog">
+    <form method="dialog" id="insurer-form">
+      <div class="dialog-heading"><div><div class="eyebrow">NEW DESTINATION</div><h2>Register an insurer</h2></div><button class="icon-button" value="cancel" aria-label="Close dialog">×</button></div>
+      <div class="form-grid">
+        <label class="field"><span>Insurer code *</span><input id="insurer-code" required pattern="[A-Z0-9_]{3,50}" placeholder="e.g. NORTHSTAR_LIFE"></label>
+        <label class="field"><span>Insurer name *</span><input id="insurer-name" required minlength="2" maxlength="200" placeholder="Legal organization name"></label>
+        <label class="field"><span>Insurer type *</span><select id="insurer-type" required><option value="">Select type</option><option>LIFE</option><option>HEALTH</option><option>MOTOR</option><option>TRAVEL</option><option>GENERAL</option></select></label>
+        <label class="field"><span>Contact email</span><input id="insurer-email" type="email" placeholder="integrations@example.com"></label>
+      </div>
+      <p class="form-hint">Destination S3 and webhook settings are server-side configuration and are not exposed in this console.</p>
+      <div class="dialog-error hidden" id="insurer-form-error"></div>
+      <div class="form-actions"><button class="button button-quiet" value="cancel">Cancel</button><button class="button button-primary" id="save-insurer" value="default">Create insurer</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+</body>
+</html>

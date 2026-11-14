@@ -39,6 +39,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {
+            // Same-origin operations console assets
+            "/",
+            "/index.html",
+            "/console.css",
+            "/console.js",
+            "/favicon.ico",
             // Swagger UI / OpenAPI
             "/swagger-ui.html",
             "/swagger-ui/**",

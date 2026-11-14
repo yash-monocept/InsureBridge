@@ -1,7 +1,12 @@
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\ApplicationContextTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\H2DatabaseProfileTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\InsurerControllerIT.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\PartnerAuthenticationIT.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\PartnerControllerIT.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\insurer\InsurerServiceTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\partner\PartnerMappingServiceTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\partner\PartnerServiceTest.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\ClientCredentialsServiceTest.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\JwtServiceTest.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\RateLimitServiceTest.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\SsrfValidatorTest.java
