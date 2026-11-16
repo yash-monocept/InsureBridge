@@ -69,5 +69,6 @@ C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transf
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\main\java\com\insurance\integration\security\service\AuthenticationService.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\main\java\com\insurance\integration\security\service\ClientCredentialsService.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\main\java\com\insurance\integration\security\service\RateLimitService.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\main\java\com\insurance\integration\security\util\BearerChallenge.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\main\java\com\insurance\integration\security\util\ScopeUtils.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\main\java\com\insurance\integration\security\validator\SsrfValidator.java

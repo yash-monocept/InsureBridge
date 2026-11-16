@@ -9,4 +9,5 @@ C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transf
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\ClientCredentialsServiceTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\JwtServiceTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\RateLimitServiceTest.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\SecurityPropertyTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\SsrfValidatorTest.java

@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.insurance.integration.integration.PartnerAuthenticationIT
 -------------------------------------------------------------------------------
-Tests run: 21, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 19.65 s -- in com.insurance.integration.integration.PartnerAuthenticationIT
+Tests run: 27, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 21.96 s -- in com.insurance.integration.integration.PartnerAuthenticationIT
