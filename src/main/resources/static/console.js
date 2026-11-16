@@ -14,6 +14,56 @@
 
   const $ = (id) => document.getElementById(id);
   const esc = encodeURIComponent;
+  const THEME_KEY = "insurebridge-theme";
+
+  function storedTheme() {
+    try {
+      const value = window.localStorage.getItem(THEME_KEY);
+      return value === "dark" || value === "light" ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function preferredTheme() {
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  function applyTheme(theme, persist) {
+    const next = theme === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", next);
+    document.documentElement.style.colorScheme = next;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", next === "dark" ? "#09090B" : "#FAFAFA");
+    const toggle = $("theme-toggle");
+    if (toggle) {
+      const target = next === "dark" ? "light" : "dark";
+      toggle.setAttribute("aria-label", `Switch to ${target} theme`);
+      toggle.setAttribute("title", `Switch to ${target} theme`);
+      toggle.setAttribute("aria-pressed", String(next === "dark"));
+    }
+    if (persist) {
+      try { window.localStorage.setItem(THEME_KEY, next); } catch { /* storage unavailable */ }
+    }
+  }
+
+  function initTheme() {
+    applyTheme(document.documentElement.getAttribute("data-theme") || storedTheme() || preferredTheme(), false);
+    const toggle = $("theme-toggle");
+    if (toggle) {
+      toggle.addEventListener("click", () => {
+        applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark", true);
+      });
+    }
+    if (window.matchMedia) {
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      const onChange = (event) => {
+        if (!storedTheme()) applyTheme(event.matches ? "dark" : "light", false);
+      };
+      if (media.addEventListener) media.addEventListener("change", onChange);
+      else if (media.addListener) media.addListener(onChange);
+    }
+  }
 
   async function request(path, options = {}) {
     const headers = new Headers(options.headers || {});
@@ -688,6 +738,7 @@
     });
   }
 
+  initTheme();
   wireEvents();
   loadOverview();
 })();

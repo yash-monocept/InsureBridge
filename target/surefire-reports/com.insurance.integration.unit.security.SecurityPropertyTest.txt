@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.insurance.integration.unit.security.SecurityPropertyTest
 -------------------------------------------------------------------------------
-Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.239 s -- in com.insurance.integration.unit.security.SecurityPropertyTest
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.421 s -- in com.insurance.integration.unit.security.SecurityPropertyTest
