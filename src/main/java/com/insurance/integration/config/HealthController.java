@@ -17,8 +17,8 @@ import java.util.Map;
  * and API gateway health probes.
  *
  * This endpoint is intentionally unauthenticated (listed in SecurityConfig PUBLIC_PATHS)
- * and returns a minimal status payload. For detailed health information, use the
- * Spring Actuator endpoint at /actuator/health (authorized access only).
+ * and returns a minimal status payload. The Actuator health endpoint is also
+ * public, but its details are shown only to authorised callers.
  */
 @RestController
 @RequestMapping("/api/v1/health")

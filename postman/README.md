@@ -7,12 +7,16 @@ running instance of the middleware:
 |--------|----------------|
 | 1. Smoke | Health endpoint is public |
 | 2. Credential Provisioning | Admin can register a partner and issue OAuth 2.0 credentials; secrets are never exposed by list APIs |
-| 3. OAuth 2.0 Token Flow | JSON and form-encoded token requests, token introspection, refresh |
-| 4. JWT Enforcement | Valid token accepted; missing/malformed/wrong-secret paths rejected |
-| 5. Scope Enforcement | A `write`-only token cannot call a `read` endpoint (403) |
+| 3. OAuth 2.0 Token Flow | JSON and form-encoded token requests, token introspection, refresh, non-cacheable token responses, and access/refresh token type checks |
+| 4. JWT Enforcement | Valid token accepted; missing/malformed/wrong-secret paths rejected with RFC 6750 `WWW-Authenticate` challenges; refresh tokens cannot be used as access tokens |
+| 5. Scope Enforcement | A `write`-only token cannot call a `read` endpoint (403 + `insufficient_scope` challenge) |
 | 6. Rate Limiting | Per-client limit returns 429 with `Retry-After` |
 | 7. Secret Rotation | New secret works, old secret works during the 24-hour grace window |
-| 8. Revocation | Deactivated client -> 401; deactivated partner -> 403 |
+| 8. Revocation | Deactivated client -> 401 until reactivated; deactivated partner -> 403 for both new and already-issued tokens until reactivated |
+
+The collection currently contains **33 requests / 37 assertions**; each folder
+asserts status codes, response fields and the security headers relevant to that
+flow.
 
 ## Run locally
 
@@ -48,9 +52,13 @@ running instance of the middleware:
 ## What the collection does to data
 
 The collection creates a uniquely named partner (`POSTMAN_BANK_<timestamp>`),
-three API clients (read+write, write-only, rate-limited), rotates one secret,
-then deactivates the write-only client and the partner. Against the default
-in-memory H2 database all data disappears when the application stops.
+three API clients (read+write, write-only, rate-limited), and rotates one secret.
+It deactivates and reactivates the write-only client and partner to exercise
+both revocation and restoration. It also checks that a partner's already-issued
+access token is blocked while the partner is inactive and works again after
+reactivation. The collection leaves the write-only client and partner active.
+Against the default in-memory H2 database all data disappears when the
+application stops.
 
 ## Notes
 

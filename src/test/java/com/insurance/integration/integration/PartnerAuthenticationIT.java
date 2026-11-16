@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -110,13 +111,16 @@ class PartnerAuthenticationIT {
     @DisplayName("invalid client secret is rejected with 401")
     void invalidSecretRejected() throws Exception {
         Credentials credentials = createPartnerAndClient("BAD_SECRET_BANK", List.of("read"), null);
+        String invalidSecret = "invalid-secret-canary";
 
-        mockMvc.perform(post("/api/v1/auth/token")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/token")
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(tokenRequest(
-                                credentials.clientId(), "wrong-secret"))))
+                                credentials.clientId(), invalidSecret))))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.errorType").value("AUTHENTICATION_FAILED"));
+                .andExpect(jsonPath("$.errorType").value("AUTHENTICATION_FAILED"))
+                .andReturn();
+        assertThat(result.getResponse().getContentAsString()).doesNotContain(invalidSecret);
     }
 
     @Test
@@ -196,6 +200,7 @@ class PartnerAuthenticationIT {
     void partnerMeWithoutToken() throws Exception {
         mockMvc.perform(get("/api/v1/partner/me"))
                 .andExpect(status().isUnauthorized())
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer realm=\"partner-api\""))
                 .andExpect(jsonPath("$.errorType").value("AUTHENTICATION_REQUIRED"));
     }
 
@@ -204,6 +209,52 @@ class PartnerAuthenticationIT {
     void partnerMeWithMalformedToken() throws Exception {
         mockMvc.perform(get("/api/v1/partner/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorType").value("INVALID_TOKEN"));
+    }
+
+    @Test
+    @DisplayName("partner endpoint rejects malformed authorization header formats")
+    void partnerMeWithMalformedAuthorizationHeaders() throws Exception {
+        mockMvc.perform(get("/api/v1/partner/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Basic credentials"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorType").value("AUTHENTICATION_REQUIRED"));
+
+        mockMvc.perform(get("/api/v1/partner/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorType").value("AUTHENTICATION_REQUIRED"));
+    }
+
+    @Test
+    @DisplayName("partner endpoint rejects an expired access token with 401")
+    void partnerMeWithExpiredToken() throws Exception {
+        Credentials credentials = createPartnerAndClient("EXPIRED_TOKEN_BANK", List.of("read"), null);
+        ApiClient client = apiClientRepository.findByClientId(credentials.clientId()).orElseThrow();
+        var partner = partnerRepository.findById(java.util.UUID.fromString(credentials.partnerId()))
+                .orElseThrow();
+        String expiredToken = jwtService.buildToken(client, partner,
+                Instant.now().minusSeconds(60), JwtService.TOKEN_TYPE_ACCESS, List.of("read"));
+
+        mockMvc.perform(get("/api/v1/partner/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, containsString("error=\"invalid_token\"")))
+                .andExpect(jsonPath("$.errorType").value("TOKEN_EXPIRED"));
+    }
+
+    @Test
+    @DisplayName("partner endpoint rejects a token with a tampered signature")
+    void partnerMeWithTamperedSignature() throws Exception {
+        Credentials credentials = createPartnerAndClient("TAMPERED_TOKEN_BANK", List.of("read"), null);
+        String[] parts = requestToken(credentials).path("access_token").asText().split("\\.");
+        String signature = parts[2];
+        parts[2] = (signature.startsWith("A") ? "B" : "A")
+                + signature.substring(1);
+
+        mockMvc.perform(get("/api/v1/partner/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + String.join(".", parts)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.errorType").value("INVALID_TOKEN"));
     }
@@ -244,7 +295,35 @@ class PartnerAuthenticationIT {
         mockMvc.perform(get("/api/v1/partner/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
                 .andExpect(status().isForbidden())
+                .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE,
+                        containsString("error=\"insufficient_scope\"")))
                 .andExpect(jsonPath("$.errorType").value("FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("token responses are not cacheable (RFC 6749 §5.1)")
+    void tokenResponsesAreNotCacheable() throws Exception {
+        Credentials credentials = createPartnerAndClient("CACHE_BANK", List.of("read"), null);
+
+        MvcResult tokenResult = mockMvc.perform(post("/api/v1/auth/token")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                tokenRequest(credentials.clientId(), credentials.clientSecret()))))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+                .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"))
+                .andReturn();
+
+        String refreshToken = objectMapper.readTree(tokenResult.getResponse().getContentAsString())
+                .path("refresh_token").asText();
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                java.util.Map.of("refresh_token", refreshToken))))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+                .andExpect(header().string(HttpHeaders.PRAGMA, "no-cache"));
     }
 
     // ─── Token verification and refresh ──────────────────────────────────────
@@ -305,6 +384,20 @@ class PartnerAuthenticationIT {
                         .content(objectMapper.writeValueAsString(
                                 java.util.Map.of("refresh_token", accessToken))))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("unknown API client scopes are rejected")
+    void unsupportedScopesRejected() throws Exception {
+        Credentials credentials = createPartnerAndClient("INVALID_SCOPE_BANK", List.of("read"), null);
+        ObjectNode invalidClient = objectMapper.createObjectNode();
+        invalidClient.putArray("scopes").add("superuser");
+
+        mockMvc.perform(post("/api/v1/admin/partners/{partnerId}/api-clients", credentials.partnerId())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidClient)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorType").value("BUSINESS_VALIDATION_ERROR"));
     }
 
     // ─── Secret rotation ─────────────────────────────────────────────────────
@@ -372,6 +465,10 @@ class PartnerAuthenticationIT {
     @DisplayName("admin listing never exposes the secret or its hash")
     void listingAfterCreateSucceeds() throws Exception {
         Credentials credentials = createPartnerAndClient("LIST_BANK", List.of("read"), null);
+        ApiClient persistedClient = apiClientRepository.findByClientId(credentials.clientId()).orElseThrow();
+        assertThat(persistedClient.getClientSecretHash())
+                .isNotEqualTo(credentials.clientSecret())
+                .startsWith("$2");
 
         MvcResult result = mockMvc.perform(get(
                         "/api/v1/admin/partners/{partnerId}/api-clients", credentials.partnerId()))
@@ -383,6 +480,31 @@ class PartnerAuthenticationIT {
         assertThat(body).doesNotContain("clientSecret");
         assertThat(body).doesNotContain("client_secret");
         assertThat(body).doesNotContain("$2a$");
+    }
+
+    @Test
+    @DisplayName("deactivating a client blocks refresh but does not revoke an existing access token")
+    void clientDeactivationLeavesIssuedAccessTokenValidUntilExpiry() throws Exception {
+        Credentials credentials = createPartnerAndClient("CLIENT_REVOCATION_BANK", List.of("read"), null);
+        JsonNode tokens = requestToken(credentials);
+        String accessToken = tokens.path("access_token").asText();
+        String refreshToken = tokens.path("refresh_token").asText();
+
+        mockMvc.perform(put("/api/v1/admin/partners/{partnerId}/api-clients/{clientId}/deactivate",
+                        credentials.partnerId(), credentials.clientId()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/partner/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.partnerCode").value("CLIENT_REVOCATION_BANK"));
+
+        mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                java.util.Map.of("refresh_token", refreshToken))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorType").value("AUTHENTICATION_FAILED"));
     }
 
     @Test

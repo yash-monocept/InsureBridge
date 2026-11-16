@@ -2,6 +2,7 @@
 
 **Status:** COMPLETE  
 **Completed:** November 13, 2026  
+**Verified and hardened:** November 16, 2026  
 **Specification:** `.kiro/specs/partner-authentication/`
 
 ---
@@ -68,7 +69,8 @@ com.insurance.integration.security
 ## 3. Database
 
 Migration: `V10__Add_api_client_secret_rotation.sql` — the `api_clients`
-table is created in V2; V10 adds the rotation column.
+table is created in V2; V10 adds the rotation column and aligns the `scopes`
+column default (`["read"]`) with the Module 2 scope contract.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -196,6 +198,9 @@ Response:
 }
 ```
 
+Token and refresh responses also send `Cache-Control: no-store` and
+`Pragma: no-cache`, as required by RFC 6749 §5.1.
+
 Errors:
 
 | Condition | Status | `errorType` |
@@ -214,12 +219,15 @@ Errors:
 
 `JwtAuthenticationFilter` applies to `/api/v1/partner/**`:
 
-| Situation | Status | `errorType` |
-|-----------|--------|-------------|
-| Missing Authorization header | 401 | `AUTHENTICATION_REQUIRED` |
-| Malformed / wrong signature / refresh token used | 401 | `INVALID_TOKEN` |
-| Expired token | 401 | `TOKEN_EXPIRED` |
-| Partner missing or deactivated | 403 | `PARTNER_NOT_ACTIVE` |
+| Situation | Status | `errorType` | `WWW-Authenticate` |
+|-----------|--------|-------------|--------------------|
+| Missing Authorization header | 401 | `AUTHENTICATION_REQUIRED` | `Bearer realm="partner-api"` |
+| Malformed / wrong signature / refresh token used | 401 | `INVALID_TOKEN` | `Bearer realm="partner-api", error="invalid_token"` |
+| Expired token | 401 | `TOKEN_EXPIRED` | `Bearer realm="partner-api", error="invalid_token"` |
+| Partner missing or deactivated | 403 | `PARTNER_NOT_ACTIVE` | — (JSON body carries the detail) |
+
+Challenges follow RFC 6750, so standards-compliant OAuth clients can react to
+a 401 without parsing the JSON envelope.
 
 On success it sets `PartnerPrincipal` and authorities `SCOPE_read`,
 `SCOPE_write`, `SCOPE_admin`.
@@ -233,7 +241,8 @@ Example:
 @GetMapping("/api/v1/partner/me")
 ```
 
-A token without the required scope receives 403 with `errorType: FORBIDDEN`.
+A token without the required scope receives 403 with `errorType: FORBIDDEN` and
+`WWW-Authenticate: Bearer realm="partner-api", error="insufficient_scope"`.
 
 ---
 
@@ -300,11 +309,13 @@ app:
 | Unit | `ClientCredentialsServiceTest` — hashing, auth, rotation grace | 9/9 PASS |
 | Unit | `RateLimitServiceTest` — sliding window, isolation | 4/4 PASS |
 | Unit | `SsrfValidatorTest` — wildcard, internal hosts, URL shapes | 7/7 PASS |
-| Integration | `PartnerAuthenticationIT` — full HTTP flow | 21/21 PASS |
-| Collection | Postman Module 2 collection | 26 requests / 30 assertions PASS |
+| Property | `SecurityPropertyTest` — 100 randomized inputs per property | 6/6 PASS |
+| Integration | `PartnerAuthenticationIT` — full HTTP flow | 27/27 PASS |
+| Collection | Postman Module 2 collection | 33 requests / 37 assertions PASS |
 
-Full suite: **101 tests, 0 failures, 0 errors, 3 skipped** (the three
-Testcontainers tests skip automatically when Docker is unavailable).
+Full suite: **129 tests, 0 failures, 0 errors, 7 skipped** (the PostgreSQL
+Testcontainers tests skip automatically when Docker is unavailable; 122 tests
+execute against the H2 profile).
 
 ---
 
@@ -323,3 +334,7 @@ Testcontainers tests skip automatically when Docker is unavailable).
 5. **Secret rotation grace is time-based** — a scheduled cleanup of
    `previous_secret_hash` is not required because validation checks
    `last_rotated_at`, but old hashes remain in the row until the next rotation.
+6. **Refresh tokens are stateless** — a refresh token is not single-use and is
+   not revoked after exchange. A stolen refresh token stays valid until its
+   7-day expiry; production should add refresh rotation, reuse detection or a
+   revocation store.

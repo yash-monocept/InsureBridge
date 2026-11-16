@@ -38,9 +38,8 @@ import java.util.UUID;
 /**
  * Admin REST API for partner management.
  *
- * All endpoints in this controller require admin authentication.
- * Partners cannot access these endpoints.
- * Security enforcement is handled by Spring Security + JWT filter (Module 2).
+ * These endpoints are public in the academic deployment; platform-admin
+ * authentication is not yet implemented. Lock them down before production.
  */
 @RestController
 @RequestMapping("/api/v1/admin/partners")

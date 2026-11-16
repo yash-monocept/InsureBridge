@@ -58,8 +58,9 @@ Swagger UI: `http://localhost:8080/swagger-ui.html`
 Health check: `http://localhost:8080/api/v1/health`
 Operations console: `http://localhost:8080/`
 
-The default `h2` profile creates the JPA schema automatically for local API testing.
-Use a PostgreSQL profile and its configured migrations for persistent data.
+The default `h2` profile creates the schema with Hibernate and keeps all data in
+memory for local API testing; everything is cleared when the app stops. Use the
+PostgreSQL profile (Flyway migrations V1–V10) for persistent data.
 
 The operations console covers the implemented partner, insurer, partner-insurer
 mapping, API-client, and partner-authentication endpoints. The default H2 database
@@ -117,6 +118,23 @@ npx postman-cli collection run \
   postman/Module-2-Partner-Authentication.postman_collection.json \
   -e postman/Insurance-Integration-Local.postman_environment.json
 ```
+
+The collection has 33 requests covering credential provisioning, token
+issuance/refresh/verification, JWT enforcement, scopes, rate limiting, secret
+rotation and revocation. It also asserts the RFC 6750 `WWW-Authenticate`
+challenges and non-cacheable token responses.
+
+### Tests
+
+```bash
+mvn -B test
+```
+
+Current suite: **129 tests, 0 failures** (122 executed against H2; 7 PostgreSQL
+Testcontainers tests skip when Docker is unavailable). Module 2 includes
+example-based unit tests, integration tests and a randomized property suite
+(`SecurityPropertyTest`, 100 inputs per property) for token integrity, SSRF
+host validation and rate limiting.
 
 ---
 

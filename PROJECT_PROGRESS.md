@@ -2,8 +2,8 @@
 
 **Project:** Insurance Integration Middleware and Cross-Account AWS Document Transfer Platform  
 **Deadline:** November 13–18, 2026  
-**Current Date:** November 13, 2026  
-**Days Remaining:** 5 days
+**Current Date:** November 16, 2026  
+**Days Remaining:** 2 days
 
 ---
 
@@ -137,7 +137,7 @@
 
 ## MODULE 2 — Partner Authentication & API Security
 
-**Status:** ✅ COMPLETE (November 13, 2026)
+**Status:** ✅ COMPLETE (November 13, 2026; verified and hardened November 16, 2026)
 
 ### Acceptance Criteria
 - [x] Admin can create API credentials for partners
@@ -149,25 +149,31 @@
 - [x] Client secret rotation with a 24-hour grace window
 - [x] SSRF validator with approved-host and private-address checks
 - [x] Consistent JSON errors for 401/403/429
+- [x] RFC 6750 `WWW-Authenticate` challenges on partner 401/403 responses
+- [x] RFC 6749 §5.1 non-cacheable token responses
+- [x] Randomized property suite for token integrity, SSRF and rate limiting
 - [x] Documentation and Postman collection updated
 
 ### Test Results
 - **Module 2 unit tests:** 26 passing
   - `JwtServiceTest` (6), `ClientCredentialsServiceTest` (9),
     `RateLimitServiceTest` (4), `SsrfValidatorTest` (7)
-- **Module 2 integration tests:** 21 passing (`PartnerAuthenticationIT`)
-- **Postman collection:** 26 requests / 30 assertions, 0 failures
-- **Full suite:** 101 tests, 0 failures, 0 errors, 3 skipped
-  (Testcontainers tests skip when Docker is unavailable)
+- **Module 2 property tests:** 6 passing (`SecurityPropertyTest`, 100 randomized
+  inputs per property)
+- **Module 2 integration tests:** 27 passing (`PartnerAuthenticationIT`)
+- **Postman collection:** 33 requests / 37 assertions, 0 failures
+- **Full suite:** 129 tests, 0 failures, 0 errors, 7 skipped
+  (122 executed; Testcontainers tests skip when Docker is unavailable)
 
 ### Implemented Components
-- `ApiClient` entity + `ApiClientRepository` + `V10__Add_api_client_secret_rotation.sql`
+- `ApiClient` entity + `ApiClientRepository` + `V10__Add_api_client_secret_rotation.sql` (rotation column + scope default)
 - `JwtKeyProvider` / `JwtService` — RS256 access + refresh tokens
 - `ClientCredentialsService` — BCrypt hashing, auth, rotation, revocation
 - `AuthenticationService` — token issuance, refresh, introspection
 - `JwtAuthenticationFilter` — validates Bearer tokens on `/api/v1/partner/**`
 - `RateLimitService` + `RateLimitInterceptor` — sliding 60s window per client
 - `SsrfValidator` — approved host patterns, private/metadata host blocking
+- `BearerChallenge` — RFC 6750 challenge headers
 - `AuthController`, `ApiClientAdminController`, `PartnerProfileController`
 
 ### Endpoints Added (9)
@@ -188,6 +194,8 @@
   effect immediately for outstanding tokens.
 - JWT keys are configurable via `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`. Without
   them an ephemeral development key pair is generated.
+- Token responses are non-cacheable (RFC 6749 §5.1); partner 401/403 responses
+  include RFC 6750 `WWW-Authenticate` challenges.
 - `/api/v1/admin/**` remains open in the academic deployment; platform-admin
   authentication is outside Module 2 scope and must be added before production.
 
@@ -214,11 +222,12 @@
 
 | Metric | Value |
 |--------|-------|
-| Main source | 73 Java files, ~3,800 lines |
-| Test source | 12 Java files, ~1,900 lines |
+| Main source | 74 Java files, ~3,900 lines |
+| Test source | 13 Java files, ~2,150 lines |
 | REST Endpoints | 26 (25 business + health) |
 | Database Tables | 15 |
-| Test Cases | 101 (98 passing, 3 skipped) |
+| Test Cases | 129 (122 passing, 7 skipped) |
+| Postman | 33 requests / 37 assertions |
 | Exception Types | 10 |
 | DTOs | 18 |
 | Services | 7 |
@@ -241,18 +250,20 @@ production hardening items:
 2. **Rate limiting is per instance** — `RateLimitService` keeps a sliding-window
    counter in memory, so limits are enforced per application instance, not
    globally across a cluster.
-3. **No access-token revocation list** — deactivating a partner or API client is
-   enforced on every request by re-checking status, but an already-issued token
-   for a still-active client stays valid until it expires.
+3. **No access-token revocation list** — deactivating a partner is enforced on
+   every request. Deactivating an API client blocks new tokens and refreshes,
+   but an already-issued access token for that client stays valid until expiry.
 4. **Ephemeral JWT keys in development** — without `JWT_PRIVATE_KEY` /
    `JWT_PUBLIC_KEY`, an RSA key pair is generated at startup and tokens are
    invalid after a restart. Configure persistent keys for deployed environments.
-5. **PostgreSQL migration test skipped without Docker** — the three Testcontainers
+5. **PostgreSQL migration test skipped without Docker** — the Testcontainers
    tests skip when Docker is unavailable. V10 is an idempotent `ALTER TABLE` on
-   the `api_clients` table created in V2, but it has not been executed against a
-   live PostgreSQL instance in this environment.
+   the `api_clients` table created in V2 (plus a scope-default alignment), but it
+   has not been executed against a live PostgreSQL instance in this environment.
 6. **Postman evidence uses the H2 dev profile** — the local run stores data in
    memory, so seeded partners/clients reset when the application restarts.
+7. **Refresh tokens are stateless** — they are not single-use or revoked on
+   exchange; a leaked refresh token remains valid until its 7-day expiry.
 
 ---
 
@@ -264,10 +275,10 @@ production hardening items:
 | Nov 6 | Module 0 complete, Module 1 start | ✅ COMPLETE |
 | Nov 12 | Module 0 + Module 1 complete with testing & docs | ✅ COMPLETE |
 | Nov 13 | Module 2 (Partner Authentication) complete | ✅ COMPLETE |
-| Nov 13-14 | Modules 3-5 (Ingestion, Schema Validation, Business Validation) | ⏳ NEXT |
-| Nov 15-16 | Modules 6-10 (S3, Async, Documents, Metadata) | ⏳ NEXT |
-| Nov 17 | Modules 11-13 (Notifications, Audit, Swagger, Integration) | ⏳ NEXT |
-| Nov 18 | Final submission | ⏳ NEXT |
+| Nov 16 | Module 2 verified: hardening, 27 integration + 6 property tests, Postman 33/37 | ✅ COMPLETE |
+| Nov 16-17 | Modules 3-5 (Ingestion, Schema Validation, Business Validation) | ⏳ NEXT |
+| Nov 17 | Modules 6-10 (S3, Async, Documents, Metadata) | ⏳ NEXT |
+| Nov 18 | Modules 11-13 plus final integration and submission | ⏳ NEXT |
 
 ---
 
@@ -277,23 +288,24 @@ production hardening items:
 - ✅ `security/` package — entity, repository, JWT provider/service, client
   credentials, authentication, rate limiting, SSRF validation, filter,
   principal, handlers, controllers, DTOs
+- ✅ `security/util/BearerChallenge.java` — RFC 6750 challenge headers
 - ✅ `config/SecurityConfig.java` — public auth paths, JWT filter, partner rules
 - ✅ `config/WebMvcConfig.java` — rate-limit interceptor registration
 - ✅ `common/exception/` — `InsufficientScopeException`,
   `RateLimitExceededException`, and updated `GlobalExceptionHandler`
 - ✅ `db/migration/V10__Add_api_client_secret_rotation.sql` — rotation column
-  (the `api_clients` table itself comes from V2)
+  plus `scopes` default alignment (the `api_clients` table itself comes from V2)
 - ✅ `application.yml` / `.env.example` — JWT, rate-limit, test profile settings
 
 ### Tests
-- ✅ `integration/PartnerAuthenticationIT.java` — 21 M2 integration tests
-- ✅ `unit/security/` — 26 unit tests (JWT, credentials, rate limit, SSRF)
+- ✅ `integration/PartnerAuthenticationIT.java` — 27 M2 integration tests
+- ✅ `unit/security/` — 32 tests (26 example-based + 6 randomized properties)
 - ✅ Fixed `ApplicationContextTest`, `InsurerControllerIT`,
   `PartnerControllerIT` for the new auth contract and test profile
 
 ### Postman
 - ✅ `postman/Module-2-Partner-Authentication.postman_collection.json` —
-  26 requests / 30 assertions
+  33 requests / 37 assertions
 - ✅ `postman/Insurance-Integration-Local.postman_environment.json`
 - ✅ `postman/README.md` — run instructions and collection variables
 
@@ -310,7 +322,7 @@ production hardening items:
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| Test Pass Rate | 100% | 100% (98 executed, 3 skipped) | ✅ |
+| Test Pass Rate | 100% | 100% (122 executed, 7 skipped) | ✅ |
 | Compilation | 0 errors | 0 errors | ✅ |
 | REST Endpoints | 20+ | 26 | ✅ |
 | Code Coverage | High | High | ✅ |
@@ -322,23 +334,26 @@ production hardening items:
 ## Burndown Chart
 
 ```
-Days Remaining    Tasks Pending    Modules Complete
-      5               10                  3/13 (23%)   <- Nov 13: Module 2 done
-      4                7                  6/13 (46%)   <- Modules 3-5
-      3                5                  8/13 (62%)
-      2                2                 11/13 (85%)   <- Modules 6-10
-      1                0                 13/13 (100%)  <- Modules 11-13
-      0                0             submission (Nov 18)
+Date       Modules Complete
+Nov 16          3/13 (23%)   <- Module 2 verified; 2 days left
+Nov 17          8/13 (62%)   <- Modules 3-5 plus the priority document path
+Nov 18         13/13 (100%)  <- remaining modules, integration, submission
 ```
 
-Target: finish Modules 3-5 by Nov 14, Modules 6-10 by Nov 16, and Modules
-11-13 plus final integration by Nov 17.
+Remaining modules must be compressed: prioritise Modules 3–5 (ingestion and
+validation), then the S3/transfer path, and finish with audit/docs. Module 2 is
+complete and verified; do not reopen it unless a later module needs an auth
+change.
 
 ---
 
 ## Next Actions
 
 **IMMEDIATE (Next Session):**
+
+0. MODULE 2 is complete and verified — do not reopen unless a later module needs
+   an auth change. Evidence: 129 tests (122 executed, 7 skipped), Postman
+   33 requests / 37 assertions, both green.
 
 1. Implement MODULE 3 — Request Ingestion
    - Partner-facing document submission API (`POST /api/v1/partner/requests`)
@@ -361,6 +376,7 @@ Target: finish Modules 3-5 by Nov 14, Modules 6-10 by Nov 16, and Modules
 - Add platform-admin authentication for `/api/v1/admin/**`
 - Move rate limiting to a shared store (Redis) for multi-instance deployments
 - Add a token revocation/deny list for deactivated clients
+- Add refresh-token rotation/reuse detection (tokens are currently stateless)
 - Configure persistent RS256 keys through `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY`
 
 ---

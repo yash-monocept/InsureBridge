@@ -188,6 +188,8 @@
                   "  pm.expect(body.expires_in).to.be.above(0);",
                   "  pm.expect(body.refresh_token).to.be.a('string').and.not.empty;",
                   "  pm.expect(body.scopes).to.include('read');",
+                  "  pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store');",
+                  "  pm.expect(pm.response.headers.get('Pragma')).to.eql('no-cache');",
                   "});",
                   "pm.collectionVariables.set('accessToken', body.access_token);",
                   "pm.collectionVariables.set('refreshToken', body.refresh_token);"
@@ -277,7 +279,9 @@
                   "  const body = pm.response.json();",
                   "  pm.expect(body.access_token).to.be.a('string').and.not.empty;",
                   "  pm.expect(body.access_token).to.not.eql(pm.collectionVariables.get('accessToken'));",
+                  "  pm.expect(pm.response.headers.get('Cache-Control')).to.include('no-store');",
                   "  pm.collectionVariables.set('accessToken', body.access_token);",
+                  "  pm.collectionVariables.set('refreshToken', body.refresh_token);",
                   "});"
                 ]
               }
@@ -289,6 +293,33 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "refresh"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Access token cannot be used as a refresh token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('access token is rejected by the refresh endpoint', () => {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('AUTHENTICATION_FAILED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{accessToken}}\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "refresh"] }
           },
@@ -336,6 +367,7 @@
                   "pm.test('missing token is rejected with 401', () => {",
                   "  pm.response.to.have.status(401);",
                   "  pm.expect(pm.response.json().errorType).to.eql('AUTHENTICATION_REQUIRED');",
+                  "  pm.expect(pm.response.headers.get('WWW-Authenticate')).to.eql('Bearer realm=\"partner-api\"');",
                   "});"
                 ]
               }
@@ -359,6 +391,7 @@
                   "pm.test('malformed token is rejected with 401', () => {",
                   "  pm.response.to.have.status(401);",
                   "  pm.expect(pm.response.json().errorType).to.eql('INVALID_TOKEN');",
+                  "  pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('error=\"invalid_token\"');",
                   "});"
                 ]
               }
@@ -367,6 +400,29 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer not-a-jwt" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Partner profile with refresh token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('refresh token is rejected as a bearer access token', () => {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('INVALID_TOKEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{refreshToken}}" }],
             "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
           },
           "response": []
@@ -471,6 +527,7 @@
                   "pm.test('missing read scope is rejected with 403', () => {",
                   "  pm.response.to.have.status(403);",
                   "  pm.expect(pm.response.json().errorType).to.eql('FORBIDDEN');",
+                  "  pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('error=\"insufficient_scope\"');",
                   "});"
                 ]
               }
@@ -734,6 +791,60 @@
           "response": []
         },
         {
+          "name": "Reactivate write-only client (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('API client can be reactivated', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.active).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/api-clients/{{writeClientId}}/activate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "api-clients", "{{writeClientId}}", "activate"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reactivated client can get a token (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('reactivated client can authenticate again', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().scopes).to.eql(['write']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{writeClientId}}\",\n  \"client_secret\": \"{{writeClientSecret}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        },
+        {
           "name": "Deactivate partner",
           "event": [
             {
@@ -753,6 +864,29 @@
             "method": "PUT",
             "header": [],
             "url": { "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/deactivate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "deactivate"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Existing access token rejected after partner deactivation (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('partner deactivation blocks already-issued access tokens', () => {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().errorType).to.eql('PARTNER_NOT_ACTIVE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
           },
           "response": []
         },
@@ -780,6 +914,52 @@
               "raw": "{\n  \"grant_type\": \"client_credentials\",\n  \"client_id\": \"{{clientId}}\",\n  \"client_secret\": \"{{rotatedSecret}}\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/v1/auth/token", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "token"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Reactivate partner (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('partner can be reactivated', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.active).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/admin/partners/{{partnerId}}/activate", "host": ["{{baseUrl}}"], "path": ["api", "v1", "admin", "partners", "{{partnerId}}", "activate"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Previously issued access token works after partner reactivation (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('active partner can use an unexpired issued access token', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().data.partnerCode).to.eql(pm.collectionVariables.get('partnerCode'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/partner/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "partner", "me"] }
           },
           "response": []
         }

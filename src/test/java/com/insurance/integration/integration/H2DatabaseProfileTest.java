@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -35,6 +37,29 @@ class H2DatabaseProfileTest {
     }
 
     @Test
+    void healthSwaggerAndStructuredErrorsAreAvailable() throws Exception {
+        ResponseEntity<String> health = restTemplate.getForEntity("/api/v1/health", String.class);
+        ResponseEntity<String> actuator = restTemplate.getForEntity("/actuator/health", String.class);
+        ResponseEntity<String> openApi = restTemplate.getForEntity("/v3/api-docs", String.class);
+        ResponseEntity<String> swaggerUi = restTemplate.getForEntity("/swagger-ui/index.html", String.class);
+        ResponseEntity<String> notFound = restTemplate.getForEntity(
+                "/api/v1/admin/partners/" + UUID.randomUUID(), String.class);
+
+        assertThat(health.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(objectMapper.readTree(health.getBody()).path("data").path("status").asText())
+                .isEqualTo("UP");
+        assertThat(actuator.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(objectMapper.readTree(actuator.getBody()).path("status").asText()).isEqualTo("UP");
+        assertThat(openApi.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(objectMapper.readTree(openApi.getBody()).path("openapi").asText()).isNotBlank();
+        assertThat(swaggerUi.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(notFound.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        JsonNode error = objectMapper.readTree(notFound.getBody());
+        assertThat(error.path("status").asInt()).isEqualTo(404);
+        assertThat(error.path("errorType").asText()).isEqualTo("NOT_FOUND");
+    }
+
+    @Test
     void createsAndReadsInsurerThroughLocalApi() {
         String request = """
                 {
@@ -54,6 +79,58 @@ class H2DatabaseProfileTest {
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(retrieved.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(retrieved.getBody()).contains("POSTMAN_TEST");
+    }
+
+    @Test
+    void persistsPartnerInsurerMappingThroughLocalApi() throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
+        String partnerCode = "H2_PARTNER_" + suffix;
+        String insurerCode = "H2_INSURER_" + suffix;
+        String partnerRequest = """
+                {
+                  "partnerCode": "%s",
+                  "partnerName": "H2 Mapping Test Partner",
+                  "partnerType": "BANK",
+                  "contactEmail": "partner-%s@example.com",
+                  "maxDocumentSizeMb": 50
+                }
+                """.formatted(partnerCode, suffix.toLowerCase());
+        String insurerRequest = """
+                {
+                  "insurerCode": "%s",
+                  "insurerName": "H2 Mapping Test Insurer",
+                  "insurerType": "GENERAL",
+                  "contactEmail": "insurer-%s@example.com"
+                }
+                """.formatted(insurerCode, suffix.toLowerCase());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        ResponseEntity<String> createdPartner = restTemplate.postForEntity(
+                "/api/v1/admin/partners", new HttpEntity<>(partnerRequest, headers), String.class);
+        assertThat(createdPartner.getStatusCode())
+                .as("Partner registration response: %s", createdPartner.getBody())
+                .isEqualTo(HttpStatus.CREATED);
+        ResponseEntity<String> createdInsurer = restTemplate.postForEntity(
+                "/api/v1/admin/insurers", new HttpEntity<>(insurerRequest, headers), String.class);
+        String partnerId = objectMapper.readTree(createdPartner.getBody())
+                .path("data").path("id").asText();
+        String mappingRequest = objectMapper.writeValueAsString(java.util.Map.of(
+                "insurerCode", insurerCode,
+                "permittedProductTypes", "[\"MOTOR_INSURANCE\"]"));
+
+        ResponseEntity<String> createdMapping = restTemplate.postForEntity(
+                "/api/v1/admin/partners/" + partnerId + "/mappings",
+                new HttpEntity<>(mappingRequest, headers), String.class);
+        ResponseEntity<String> retrievedMappings = restTemplate.getForEntity(
+                "/api/v1/admin/partners/" + partnerId + "/mappings", String.class);
+
+        assertThat(createdInsurer.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(createdMapping.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(retrievedMappings.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode mapping = objectMapper.readTree(retrievedMappings.getBody()).path("data").get(0);
+        assertThat(mapping.path("partnerCode").asText()).isEqualTo(partnerCode);
+        assertThat(mapping.path("insurerCode").asText()).isEqualTo(insurerCode);
     }
 
     @Test

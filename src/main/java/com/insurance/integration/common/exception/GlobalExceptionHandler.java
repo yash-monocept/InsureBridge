@@ -1,13 +1,16 @@
 package com.insurance.integration.common.exception;
 
 import com.insurance.integration.common.response.ApiError;
+import com.insurance.integration.security.util.BearerChallenge;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -16,6 +19,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -27,6 +31,9 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    private static final List<String> SENSITIVE_FIELD_MARKERS =
+            List.of("secret", "password", "token", "credential", "authorization", "arn", "url");
 
     // ============================================================
     // 400 Bad Request
@@ -50,6 +57,23 @@ public class GlobalExceptionHandler {
                 .message("Request validation failed. Please check the field errors.")
                 .path(request.getRequestURI())
                 .fieldErrors(fieldErrors)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableRequestBody(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+
+        log.warn("Request body could not be read at {}", request.getRequestURI());
+
+        ApiError error = ApiError.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .errorType("INVALID_REQUEST_BODY")
+                .message("Request body is malformed or contains an invalid value.")
+                .path(request.getRequestURI())
                 .build();
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
@@ -195,6 +219,12 @@ public class GlobalExceptionHandler {
                 .path(request.getRequestURI())
                 .build();
 
+        if (request.getRequestURI().startsWith("/api/v1/partner/")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .header(HttpHeaders.WWW_AUTHENTICATE, BearerChallenge.insufficientScope(
+                            "The access token does not grant the required scope."))
+                    .body(error);
+        }
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
@@ -213,7 +243,10 @@ public class GlobalExceptionHandler {
                 .path(request.getRequestURI())
                 .build();
 
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .header(HttpHeaders.WWW_AUTHENTICATE,
+                        BearerChallenge.insufficientScope(ex.getMessage()))
+                .body(error);
     }
 
     // ============================================================
@@ -310,8 +343,19 @@ public class GlobalExceptionHandler {
     private ApiError.FieldError mapFieldError(FieldError fe) {
         return ApiError.FieldError.builder()
                 .field(fe.getField())
-                .rejectedValue(fe.getRejectedValue() != null ? fe.getRejectedValue().toString() : null)
+                .rejectedValue(safeRejectedValue(fe))
                 .message(fe.getDefaultMessage())
                 .build();
+    }
+
+    private String safeRejectedValue(FieldError fieldError) {
+        Object rejectedValue = fieldError.getRejectedValue();
+        if (rejectedValue == null) {
+            return null;
+        }
+
+        String field = fieldError.getField().toLowerCase(Locale.ROOT);
+        boolean sensitive = SENSITIVE_FIELD_MARKERS.stream().anyMatch(field::contains);
+        return sensitive ? "[REDACTED]" : rejectedValue.toString();
     }
 }

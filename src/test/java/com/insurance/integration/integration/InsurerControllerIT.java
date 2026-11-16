@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.greaterThan;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -61,6 +62,7 @@ class InsurerControllerIT {
                 .destinationBucketRegion("us-east-1")
                 .destinationIamRoleArn("arn:aws:iam::123456789012:role/test")
                 .destinationPathPrefix("inbound/")
+                .webhookSecret("WEBHOOK_SECRET_SENTINEL")
                 .build();
     }
 
@@ -114,6 +116,22 @@ class InsurerControllerIT {
                 .content(objectMapper.writeValueAsString(invalid)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorType").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("POST /insurers: should reject an unknown insurer type with 400")
+    void registerInsurer_invalidType_badRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/insurers")
+                .contentType(APPLICATION_JSON)
+                .content("""
+                        {
+                          "insurerCode": "INVALID_TYPE",
+                          "insurerName": "Invalid Type Insurer",
+                          "insurerType": "NOT_AN_INSURER_TYPE"
+                        }
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorType").value("INVALID_REQUEST_BODY"));
     }
 
     @Test
@@ -307,8 +325,26 @@ class InsurerControllerIT {
 
         Insurer insurer = insurerRepository.findByInsurerCode("TEST_LIFE").orElseThrow();
 
-        mockMvc.perform(get("/api/v1/admin/insurers/" + insurer.getId()))
+        var response = mockMvc.perform(get("/api/v1/admin/insurers/" + insurer.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.destinationIamRoleArn").doesNotExist());
+        assertThat(response.andReturn().getResponse().getContentAsString())
+                .doesNotContain("arn:aws:iam", "WEBHOOK_SECRET_SENTINEL", "webhookSecret");
+    }
+
+    @Test
+    @DisplayName("validation errors redact rejected secrets")
+    void validationErrorDoesNotExposeWebhookSecret() throws Exception {
+        String secret = "WEBHOOK_SECRET_CANARY_" + "x".repeat(501);
+        validRequest.setWebhookSecret(secret);
+
+        var response = mockMvc.perform(post("/api/v1/admin/insurers")
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors[0].rejectedValue").value("[REDACTED]"))
+                .andReturn();
+
+        assertThat(response.getResponse().getContentAsString()).doesNotContain(secret);
     }
 }

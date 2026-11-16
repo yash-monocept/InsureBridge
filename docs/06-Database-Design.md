@@ -400,4 +400,4 @@ ingestion_requests ──1── outbox_events
 | V7 | V7__Create_audit_outbox.sql | audit_events, outbox_events |
 | V8 | V8__Seed_insurers.sql | Seed Max Life, Axis Max Life, Care Health |
 | V9 | V9__Seed_product_schemas.sql | Motor, Travel, Health, Loan base schemas |
-| V10 | V10__Add_api_client_secret_rotation.sql | Adds `previous_secret_hash` to `api_clients` (Module 2 rotation grace window) |
+| V10 | V10__Add_api_client_secret_rotation.sql | Adds `previous_secret_hash` to `api_clients` and aligns the `scopes` default (Module 2 rotation grace window) |

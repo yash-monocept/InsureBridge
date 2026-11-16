@@ -29,8 +29,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 /**
- * Admin REST API for insurer management.
- * All endpoints require admin authentication.
+ * Admin management API for insurers. Platform-admin authentication is not
+ * yet implemented in the academic deployment; lock these endpoints down
+ * before production.
  */
 @RestController
 @RequestMapping("/api/v1/admin/insurers")

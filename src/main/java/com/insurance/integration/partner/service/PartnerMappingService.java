@@ -2,6 +2,7 @@ package com.insurance.integration.partner.service;
 
 import com.insurance.integration.common.exception.DuplicateResourceException;
 import com.insurance.integration.common.exception.ResourceNotFoundException;
+import com.insurance.integration.common.exception.ValidationException;
 import com.insurance.integration.insurer.entity.Insurer;
 import com.insurance.integration.insurer.service.InsurerService;
 import com.insurance.integration.partner.dto.CreateMappingRequest;
@@ -41,6 +42,13 @@ public class PartnerMappingService {
     public MappingResponse createMapping(UUID partnerId, CreateMappingRequest request, String createdBy) {
         Partner partner = partnerService.findByIdOrThrow(partnerId);
         Insurer insurer = insurerService.findByCodeOrThrow(request.getInsurerCode());
+
+        if (!partner.isActive()) {
+            throw new ValidationException("Cannot create an insurer mapping for an inactive partner.");
+        }
+        if (!insurer.isActive()) {
+            throw new ValidationException("Cannot map an inactive insurer.");
+        }
 
         if (mappingRepository.existsByPartnerIdAndInsurerId(partner.getId(), insurer.getId())) {
             throw new DuplicateResourceException(

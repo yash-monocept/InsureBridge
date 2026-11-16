@@ -36,6 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String CACHE_CONTROL_NO_STORE = "no-store";
+    private static final String PRAGMA_NO_CACHE = "no-cache";
 
     private final AuthenticationService authenticationService;
 
@@ -52,7 +54,7 @@ public class AuthController {
     public ResponseEntity<TokenResponse> token(@Valid @RequestBody TokenRequest request) {
         TokenResponse response = authenticationService.issueTokens(
                 request.getClientId(), request.getClientSecret(), request.getGrantType());
-        return ResponseEntity.ok(response);
+        return tokenResponse(response);
     }
 
     /**
@@ -69,13 +71,13 @@ public class AuthController {
             @RequestParam(value = "grant_type", required = false) String grantType) {
 
         TokenResponse response = authenticationService.issueTokens(clientId, clientSecret, grantType);
-        return ResponseEntity.ok(response);
+        return tokenResponse(response);
     }
 
     @PostMapping("/refresh")
     @Operation(summary = "Exchange a refresh token for a new token pair")
     public ResponseEntity<TokenResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        return ResponseEntity.ok(authenticationService.refresh(request.getRefreshToken()));
+        return tokenResponse(authenticationService.refresh(request.getRefreshToken()));
     }
 
     @GetMapping("/verify")
@@ -88,5 +90,15 @@ public class AuthController {
             throw new PartnerAuthenticationException("Authorization header with a Bearer token is required");
         }
         return ResponseEntity.ok(authenticationService.verify(authorization.substring(BEARER_PREFIX.length()).trim()));
+    }
+
+    /**
+     * RFC 6749 §5.1 requires token responses to prevent caching.
+     */
+    private ResponseEntity<TokenResponse> tokenResponse(TokenResponse response) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, CACHE_CONTROL_NO_STORE)
+                .header(HttpHeaders.PRAGMA, PRAGMA_NO_CACHE)
+                .body(response);
     }
 }

@@ -6,6 +6,7 @@ import com.insurance.integration.partner.entity.Partner;
 import com.insurance.integration.partner.repository.PartnerRepository;
 import com.insurance.integration.security.jwt.JwtService;
 import com.insurance.integration.security.principal.PartnerPrincipal;
+import com.insurance.integration.security.util.BearerChallenge;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -140,6 +141,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
+
+        // RFC 6750: give standards-compliant clients a machine-readable challenge.
+        switch (errorType) {
+            case "AUTHENTICATION_REQUIRED" ->
+                    response.setHeader(HttpHeaders.WWW_AUTHENTICATE, BearerChallenge.missingCredentials());
+            case "INVALID_TOKEN", "TOKEN_EXPIRED" ->
+                    response.setHeader(HttpHeaders.WWW_AUTHENTICATE, BearerChallenge.invalidToken(message));
+            default -> {
+                // Partner-status failures are not OAuth challenges; the JSON body carries the detail.
+            }
+        }
 
         ApiError error = ApiError.builder()
                 .timestamp(Instant.now())

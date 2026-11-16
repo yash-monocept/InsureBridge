@@ -1,6 +1,6 @@
 # 08 — API Documentation
 
-**Version:** 2.0 (Module 2)  
+**Version:** 2.1 (Module 2 — hardened)  
 **Base URL:** `http://localhost:8080`  
 **Interactive docs:** `http://localhost:8080/swagger-ui.html`  
 **OpenAPI JSON:** `http://localhost:8080/v3/api-docs`
@@ -72,6 +72,9 @@ curl -X POST http://localhost:8080/api/v1/auth/token \
   "scopes": ["read", "write"]
 }
 ```
+
+Token responses send `Cache-Control: no-store` and `Pragma: no-cache`
+(RFC 6749 §5.1).
 
 **Errors:** 400 malformed request, 401 invalid credentials, 403 inactive partner.
 
@@ -219,14 +222,14 @@ curl http://localhost:8080/api/v1/partner/me \
 
 ### 3.2 Authentication errors
 
-| Status | `errorType` | Cause |
-|--------|-------------|-------|
-| 401 | `AUTHENTICATION_REQUIRED` | Missing Bearer token |
-| 401 | `INVALID_TOKEN` | Malformed, wrong signature, or refresh token used |
-| 401 | `TOKEN_EXPIRED` | Expired access token |
-| 403 | `PARTNER_NOT_ACTIVE` | Partner deactivated |
-| 403 | `FORBIDDEN` | Missing required scope |
-| 429 | `RATE_LIMIT_EXCEEDED` | Per-client rate limit exceeded |
+| Status | `errorType` | `WWW-Authenticate` | Cause |
+|--------|-------------|--------------------|-------|
+| 401 | `AUTHENTICATION_REQUIRED` | `Bearer realm="partner-api"` | Missing Bearer token |
+| 401 | `INVALID_TOKEN` | `Bearer … error="invalid_token"` | Malformed, wrong signature, or refresh token used |
+| 401 | `TOKEN_EXPIRED` | `Bearer … error="invalid_token"` | Expired access token |
+| 403 | `PARTNER_NOT_ACTIVE` | — | Partner deactivated |
+| 403 | `FORBIDDEN` | `Bearer … error="insufficient_scope"` | Missing required scope |
+| 429 | `RATE_LIMIT_EXCEEDED` | — | Per-client rate limit exceeded |
 
 Rate-limited responses include `Retry-After`. Allowed partner responses include
 `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
@@ -284,6 +287,8 @@ npx postman-cli collection run \
 
 The collection provisions a unique partner and clients, then verifies token
 issuance, JWT enforcement, scopes, rotation, rate limiting and revocation.
+It contains 33 requests and also asserts RFC 6750 challenge headers and
+non-cacheable token responses.
 
 ---
 

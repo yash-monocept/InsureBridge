@@ -2,9 +2,11 @@ package com.insurance.integration.security.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.insurance.integration.common.response.ApiError;
+import com.insurance.integration.security.util.BearerChallenge;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -29,6 +31,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setStatus(401);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
+        response.setHeader(HttpHeaders.WWW_AUTHENTICATE, BearerChallenge.missingCredentials());
 
         ApiError error = ApiError.builder()
                 .timestamp(Instant.now())

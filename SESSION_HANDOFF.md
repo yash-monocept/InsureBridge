@@ -1,7 +1,7 @@
 # SESSION HANDOFF
 
-**Last Updated:** November 13, 2026  
-**Session:** MODULE 2 Complete — Partner Authentication & API Security
+**Last Updated:** November 16, 2026  
+**Session:** MODULE 2 verified — authentication hardening, full test + Postman evidence
 
 ---
 
@@ -9,9 +9,9 @@
 
 - **Module 0:** Project Foundation — ✅ COMPLETE
 - **Module 1:** Partner Management — ✅ COMPLETE
-- **Module 2:** Partner Authentication & API Security — ✅ COMPLETE
-- **Test Results:** 101 tests (98 passing, 3 skipped without Docker, 0 failures)
-- **Postman:** 26 requests / 30 assertions, 0 failures
+- **Module 2:** Partner Authentication & API Security — ✅ COMPLETE & VERIFIED
+- **Test Results:** 129 tests (122 executed, 7 skipped without Docker, 0 failures)
+- **Postman:** 33 requests / 37 assertions, 0 failures
 - **Build Status:** SUCCESS
 
 ---
@@ -24,7 +24,7 @@
 - **APIs:** 26 endpoints (25 business + health)
 - **Auth:** OAuth 2.0 Client Credentials with RS256 JWTs, scopes, and rate limiting
 - **AWS:** SDK configured, LocalStack support ready (not yet used by a module)
-- **Testing:** 101 tests (JUnit 5, MockMvc, H2)
+- **Testing:** 129 tests (JUnit 5, MockMvc, H2, randomized property tests)
 - **Build:** Maven, executable JAR `target/integration-middleware-1.0.0-SNAPSHOT.jar`
 
 ---
@@ -76,11 +76,16 @@ RS256 JWTs, rate limiting, credential rotation, and SSRF protection.
 - `RateLimitService` + `RateLimitInterceptor` — sliding 60-second window per
   client, returns 429 with `Retry-After`
 - `SsrfValidator` — approved-host patterns, private/loopback/metadata blocking
+- `BearerChallenge` — RFC 6750 `WWW-Authenticate` challenges on partner 401/403
+- Non-cacheable token responses (RFC 6749 §5.1)
 - Consistent JSON 401 / 403 / 429 responses
 - `V10__Add_api_client_secret_rotation.sql` — adds `previous_secret_hash` to
-  the `api_clients` table created in V2
+  the `api_clients` table created in V2 and aligns the `scopes` default
 
 **Acceptance Criteria:** ✅ ALL MET
+
+**Verification (Nov 16):** 27 integration tests, 32 unit/property tests, and a
+33-request Postman run all pass.
 
 ---
 
@@ -146,11 +151,11 @@ GET  /api/v1/partner/me  Authorization: Bearer <accessToken>
 ### Full suite ✅
 
 ```
-ApplicationContextTest:             3 skipped  (Testcontainers/Docker unavailable)
-H2DatabaseProfileTest:              1 pass
-PartnerAuthenticationIT:           21 pass
-PartnerControllerIT:               14 pass
-InsurerControllerIT:               15 pass
+ApplicationContextTest:             7 skipped  (Testcontainers/Docker unavailable)
+H2DatabaseProfileTest:              5 pass
+PartnerAuthenticationIT:           27 pass
+PartnerControllerIT:               20 pass
+InsurerControllerIT:               17 pass
 PartnerServiceTest:                10 pass
 InsurerServiceTest:                 7 pass
 PartnerMappingServiceTest:          4 pass
@@ -158,8 +163,9 @@ ClientCredentialsServiceTest:       9 pass
 JwtServiceTest:                     6 pass
 RateLimitServiceTest:               4 pass
 SsrfValidatorTest:                  7 pass
+SecurityPropertyTest:               6 pass
 ────────────────────────────────────────────────
-TOTAL:                            101 tests, 0 failures, 0 errors, 3 skipped
+TOTAL:                            129 tests, 0 failures, 0 errors, 7 skipped
 ```
 
 **Run command:**
@@ -171,22 +177,24 @@ mvn -B test
 ### Module 2 coverage
 
 ```
-Unit tests (security):    26
-Integration tests:        21
-Postman requests:         26 (30 assertions, 0 failures)
+Unit/property tests:      32
+Integration tests:        27
+Postman requests:         33 (37 assertions, 0 failures)
 ```
 
 **What the tests cover:**
 - Token issuance with valid, invalid, and missing credentials
 - JSON and form-encoded token requests
 - Expired/tampered token rejection and signature validation
-- Scope enforcement (`read`, `write`, `admin`)
-- Deactivated client (401) and deactivated partner (403)
+- JWT claim round-trips and rejection of mutated tokens (randomized property tests)
+- Scope enforcement (`read`, `write`, `admin`) and `insufficient_scope` challenges
+- Deactivated client (401) and deactivated partner (403) with RFC 6750 challenges
 - Secret rotation grace window and old-secret expiry
-- Rate limit 429 response and `Retry-After` header
-- SSRF blocking for private, loopback, and metadata hosts
+- Rate limit 429 response, `Retry-After` header, and exact quota accounting
+- SSRF blocking for private, loopback, and metadata hosts; approved-host patterns
 - Admin API-client lifecycle (create/list/rotate/activate/deactivate)
 - Refresh tokens rejected on partner endpoints
+- `Cache-Control: no-store` / `Pragma: no-cache` on token responses (RFC 6749 §5.1)
 
 ### Postman evidence
 
@@ -200,7 +208,7 @@ npx --yes postman-cli collection run \
   --env-var baseUrl=http://localhost:8081
 ```
 
-Result: **26 requests, 30 assertions, 0 failures** against the running JAR.
+Result: **33 requests, 37 assertions, 0 failures** against the running JAR.
 
 ---
 
@@ -222,7 +230,7 @@ security/
 ├── principal/    PartnerPrincipal
 ├── repository/   ApiClientRepository
 ├── service/      ClientCredentialsService, AuthenticationService, RateLimitService
-├── util/         ScopeUtils
+├── util/         ScopeUtils, BearerChallenge
 └── validator/    SsrfValidator
 ```
 
@@ -236,11 +244,12 @@ security/
 
 ### Tests
 
-- `src/test/java/.../integration/PartnerAuthenticationIT.java` (21 tests)
+- `src/test/java/.../integration/PartnerAuthenticationIT.java` (27 tests)
 - `src/test/java/.../unit/security/ClientCredentialsServiceTest.java` (9)
 - `src/test/java/.../unit/security/JwtServiceTest.java` (6)
 - `src/test/java/.../unit/security/RateLimitServiceTest.java` (4)
 - `src/test/java/.../unit/security/SsrfValidatorTest.java` (7)
+- `src/test/java/.../unit/security/SecurityPropertyTest.java` (6 randomized properties)
 - Updated `ApplicationContextTest`, `PartnerControllerIT`, `InsurerControllerIT`,
   and `H2DatabaseProfileTest`
 
@@ -260,8 +269,8 @@ security/
 
 | Metric | Value |
 |--------|-------|
-| Main source | 73 Java files, ~3,800 lines |
-| Test source | 12 Java files, ~1,900 lines |
+| Main source | 74 Java files, ~3,900 lines |
+| Test source | 13 Java files, ~2,300 lines |
 | REST Endpoints | 26 (25 business + health) |
 | Service classes | 7 |
 | DTOs | 18 |
@@ -270,7 +279,7 @@ security/
 | Database Tables | 15 |
 | Flyway Migrations | 10 |
 | Exception Types | 10 |
-| Test Cases | 101 (98 executed, 3 skipped) |
+| Test Cases | 129 (122 executed, 7 skipped) |
 | Pass Rate | 100% of executed tests |
 
 ---
@@ -286,7 +295,7 @@ api_clients
 ├─ client_id             VARCHAR(100), UNIQUE, NOT NULL
 ├─ client_secret_hash    VARCHAR(500), NOT NULL (BCrypt cost 12)
 ├─ previous_secret_hash  VARCHAR(500)          (added in V10, 24h grace)
-├─ scopes                TEXT, NOT NULL        (JSON array)
+├─ scopes                TEXT, NOT NULL        (JSON array, default '["read"]')
 ├─ token_expiry_seconds  INTEGER, DEFAULT 3600
 ├─ rate_limit_per_minute INTEGER, DEFAULT 100
 ├─ is_active             BOOLEAN, DEFAULT TRUE
@@ -301,8 +310,13 @@ api_clients
 
 - Secrets are 256-bit random values, stored only as BCrypt cost-12 hashes, and
   returned exactly once at creation/rotation.
-- Partner and client status are re-checked per request, so deactivation takes
-  effect immediately for outstanding tokens.
+- Partner status is re-checked per request, so partner deactivation takes effect
+  immediately for outstanding tokens. Per-client deactivation only blocks new
+  token issuance; already-issued access tokens remain valid until expiry.
+- 401/403 responses carry RFC 6750 `WWW-Authenticate: Bearer` challenges
+  (including `insufficient_scope` when a token lacks a required scope).
+- Token responses set `Cache-Control: no-store` and `Pragma: no-cache` per
+  RFC 6749 §5.1.
 - Refresh tokens are signed separately and cannot access partner APIs.
 - Rate limiting is keyed by `clientId` and returns `Retry-After`.
 - Configure `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` (PEM) for persistent tokens;
@@ -317,14 +331,17 @@ api_clients
    must be added before production.
 2. **Rate limiting is per instance** — in-memory sliding window; a cluster needs
    a shared store such as Redis.
-3. **No token revocation list** — deactivation is enforced by status checks, but
-   an issued token for a still-active client remains valid until expiry.
+3. **No token revocation list** — partner deactivation is checked per request,
+   but an access token issued to a still-active client remains valid until expiry.
+   Per-client deactivation blocks new tokens only.
 4. **Ephemeral JWT keys in development** — tokens are invalid after restart
    unless persistent keys are configured.
-5. **PostgreSQL migration run not executed locally** — Testcontainers tests skip
+5. **Refresh tokens are stateless** — not single-use and not revoked after
+   exchange; a stolen refresh token stays valid until its 7-day expiry.
+6. **PostgreSQL migration run not executed locally** — Testcontainers tests skip
    without Docker. V10 is an idempotent `ALTER TABLE` on the V2 table, but it has
    not been run against a live PostgreSQL instance in this environment.
-6. **Postman data is in-memory** — the dev H2 profile resets partners and clients
+7. **Postman data is in-memory** — the dev H2 profile resets partners and clients
    on restart.
 
 ---
@@ -335,13 +352,14 @@ api_clients
 ✅ 26 REST endpoints implemented (partner, insurer, mapping, API client, auth)  
 ✅ OAuth 2.0 Client Credentials with JSON and form-encoded requests  
 ✅ RS256 access + refresh tokens with scope enforcement  
+✅ RFC 6750 Bearer challenges and non-cacheable token responses  
 ✅ Client secret rotation with 24-hour grace window  
 ✅ Per-client rate limiting with 429 + `Retry-After`  
 ✅ SSRF validation for outbound document URLs  
 ✅ Structured errors for 400 / 401 / 403 / 404 / 409 / 429  
 ✅ Request validation, pagination, filtering, sorting  
 ✅ Swagger/OpenAPI documentation  
-✅ 101 tests (98 passing, 3 skipped) and 30 passing Postman assertions  
+✅ 129 tests (122 passing, 7 skipped) and 37 passing Postman assertions  
 ✅ Executable JAR builds successfully  
 
 ---
@@ -416,15 +434,15 @@ npx --yes postman-cli collection run \
 
 ## DEVELOPMENT VELOCITY
 
-- **Days elapsed:** 9 days (Nov 5 – Nov 13)
+- **Days elapsed:** 12 days (Nov 5 – Nov 16)
 - **Modules completed:** 3 of 13 (23%)
-- **Tests:** 101 total (98 executed, 3 skipped)
-- **Remaining time:** 5 days (Nov 14–18)
+- **Tests:** 129 total (122 executed, 7 skipped)
+- **Remaining time:** 2 days (Nov 17–18)
 - **Modules remaining:** 10
-- **Required pace:** ~2 modules per day
+- **Required pace:** ~5 modules per day
 
-Plan: Modules 3–5 by Nov 14, Modules 6–10 by Nov 16, Modules 11–13 plus final
-integration by Nov 17, submit Nov 18.
+Plan: Modules 3–5 by Nov 17, Modules 6–10 by Nov 17, Modules 11–13 plus final
+integration by Nov 18, submit Nov 18.
 
 ---
 
@@ -479,13 +497,16 @@ SESSION_HANDOFF.md
 **What was done:**
 1. Implemented Module 2 partner authentication end to end
 2. Added 9 auth/API-client endpoints and protected partner routes
-3. Added 47 Module 2 tests; fixed existing integration tests
-4. Added the Postman collection and environment; ran 26 requests / 30 assertions
+3. Added 59 Module 2 tests (32 unit/property + 27 integration); fixed existing
+   integration tests
+4. Added the Postman collection and environment; ran 33 requests / 37 assertions
    with 0 failures
 5. Updated architecture, database, traceability, API, and README documentation
 6. Corrected the V10 migration so it extends the V2 `api_clients` table instead
-   of creating a duplicate
-7. Full suite: 101 tests, 0 failures, 0 errors, 3 skipped
+   of creating a duplicate, and aligned the `scopes` default
+7. Hardened error semantics: RFC 6750 Bearer challenges and RFC 6749 §5.1
+   non-cacheable token responses
+8. Full suite: 129 tests, 0 failures, 0 errors, 7 skipped
 
 ---
 

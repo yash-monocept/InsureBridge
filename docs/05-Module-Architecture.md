@@ -413,7 +413,12 @@ mvn test -Dtest="!ApplicationContextTest,!*ControllerIT"
 mvn test
 ```
 
-**Result: 21 unit tests + 29 integration tests = 50 total tests**
+**Result (full suite, November 16): 129 tests, 0 failures, 7 skipped — 122 executed**
+
+The 7 skips are `ApplicationContextTest` Testcontainers cases that require
+Docker. Module-scoped counts in the completed-module summaries below describe the
+suite at each module's delivery; the M2 additions are listed in its Test Coverage
+table.
 
 ---
 
@@ -429,13 +434,13 @@ mvn test
 - Exception handling
 - API response structures
 - Logging infrastructure
-- 3 context tests (skipped without Docker) + 1 H2 profile test
+- context tests (Testcontainers cases skip without Docker) + H2 profile tests
 - Executable JAR (76.5 MB)
 - Complete documentation
 
 **Key Metrics:**
 - LOC (Lines of Code): ~2,500
-- Test Coverage: 4 context tests (3 skipped without Docker)
+- Test Coverage: context tests (Testcontainers cases skip without Docker)
 - Database Tables: 15
 - Compilation: Success
 - Build Artifacts: integration-middleware-1.0.0-SNAPSHOT.jar
@@ -480,7 +485,7 @@ mvn test
 
 ## MODULE 2 — PARTNER AUTHENTICATION & API SECURITY
 
-**Status:** COMPLETE (November 13, 2026)
+**Status:** COMPLETE (November 13, 2026; verified and hardened November 16, 2026)
 
 ### Purpose
 
@@ -541,6 +546,8 @@ Partner: GET  /api/v1/partner/me  Authorization: Bearer …  -> 200 profile
   `approved_source_hosts` (wildcards match one DNS label).
 - Rate limiting: sliding 60-second window per client id, fail-closed when no
   principal is present, `X-RateLimit-*` headers on allowed requests.
+- Standards compliance: token responses are non-cacheable (RFC 6749 §5.1) and
+  partner 401/403 responses carry RFC 6750 `WWW-Authenticate` challenges.
 
 ### Endpoints Added (Module 2)
 
@@ -564,8 +571,9 @@ Partner: GET  /api/v1/partner/me  Authorization: Bearer …  -> 200 profile
 | `ClientCredentialsServiceTest` | 9 | PASS |
 | `RateLimitServiceTest` | 4 | PASS |
 | `SsrfValidatorTest` | 7 | PASS |
-| `PartnerAuthenticationIT` | 21 | PASS |
-| Postman collection | 26 requests / 30 assertions | PASS |
+| `SecurityPropertyTest` (100 randomized inputs per property) | 6 | PASS |
+| `PartnerAuthenticationIT` | 27 | PASS |
+| Postman collection | 33 requests / 37 assertions | PASS |
 
 ---
 

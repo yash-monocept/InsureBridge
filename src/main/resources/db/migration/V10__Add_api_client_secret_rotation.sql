@@ -14,3 +14,9 @@ ALTER TABLE api_clients
 
 COMMENT ON COLUMN api_clients.previous_secret_hash
     IS 'BCrypt hash of the previous secret, valid only during the 24h rotation grace period.';
+
+-- V2 used the pre-Module 2 scope names ("document:submit", "status:read").
+-- Module 2 grants "read", "write" and "admin", and new clients default to
+-- read-only, so align the column default with the application contract.
+ALTER TABLE api_clients
+    ALTER COLUMN scopes SET DEFAULT '["read"]';

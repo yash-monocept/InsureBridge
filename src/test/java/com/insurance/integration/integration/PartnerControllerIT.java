@@ -140,6 +140,23 @@ class PartnerControllerIT {
     }
 
     @Test
+    @DisplayName("POST /partners: should reject an unknown partner type with 400")
+    void registerPartner_invalidType_badRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/partners")
+                .contentType(APPLICATION_JSON)
+                .content("""
+                        {
+                          "partnerCode": "INVALID_TYPE",
+                          "partnerName": "Invalid Type Partner",
+                          "partnerType": "NOT_A_PARTNER_TYPE",
+                          "contactEmail": "invalid-type@example.com"
+                        }
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorType").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
     @DisplayName("POST /partners: should validate email format")
     @Transactional
     void registerPartner_invalidEmail_badRequest() throws Exception {
@@ -205,26 +222,45 @@ class PartnerControllerIT {
     @DisplayName("GET /partners/{id}: should return partner by ID")
     @Transactional
     void getPartner_success() throws Exception {
-        // Create partner
-        var response = mockMvc.perform(post("/api/v1/admin/partners")
+        mockMvc.perform(post("/api/v1/admin/partners")
                 .contentType(APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(validRequest)))
-                .andExpect(status().isCreated())
-                .andReturn();
+                .andExpect(status().isCreated());
 
-        String responseBody = response.getResponse().getContentAsString();
-        UUID partnerId = objectMapper.readTree(responseBody)
-                .get("data").get("id").asText().equals("null") ?
-                UUID.randomUUID() : UUID.fromString(objectMapper.readTree(responseBody)
-                .get("data").get("id").asText());
-
-        // Get partner - extract ID from response
         Partner partner = partnerRepository.findByPartnerCode("TEST_BANK").orElseThrow();
 
         mockMvc.perform(get("/api/v1/admin/partners/" + partner.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.partnerCode").value("TEST_BANK"));
+    }
+
+    @Test
+    @DisplayName("PUT /partners/{id}: should update and persist mutable fields")
+    @Transactional
+    void updatePartner_successAndPersists() throws Exception {
+        Partner partner = partnerRepository.save(Partner.builder()
+                .partnerCode("UPDATE_BANK")
+                .partnerName("Original Partner Name")
+                .partnerType(PartnerType.BANK)
+                .contactEmail("original@example.com")
+                .active(true)
+                .createdBy("admin")
+                .build());
+        UpdatePartnerRequest request = new UpdatePartnerRequest();
+        request.setPartnerName("Updated Partner Name");
+        request.setContactEmail("updated@example.com");
+
+        mockMvc.perform(put("/api/v1/admin/partners/{id}", partner.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.partnerName").value("Updated Partner Name"))
+                .andExpect(jsonPath("$.data.contactEmail").value("updated@example.com"));
+
+        mockMvc.perform(get("/api/v1/admin/partners/{id}", partner.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.partnerName").value("Updated Partner Name"));
     }
 
     @Test
@@ -306,6 +342,104 @@ class PartnerControllerIT {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.insurerCode").value("TEST_INSURER"));
+
+        mockMvc.perform(get("/api/v1/admin/partners/{id}/mappings", partner.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].partnerCode").value("PARTNER3"))
+                .andExpect(jsonPath("$.data[0].insurerCode").value("TEST_INSURER"));
+    }
+
+    @Test
+    @DisplayName("POST /partners/{id}/mappings: should reject duplicate mappings")
+    @Transactional
+    void createMapping_duplicate_conflict() throws Exception {
+        Partner partner = Partner.builder()
+                .partnerCode("DUPLICATE_MAPPING")
+                .partnerName("Duplicate Mapping Partner")
+                .partnerType(PartnerType.BANK)
+                .contactEmail("duplicate-mapping@example.com")
+                .active(true)
+                .createdBy("admin")
+                .build();
+        partner = partnerRepository.save(partner);
+        CreateMappingRequest request = new CreateMappingRequest();
+        request.setInsurerCode("TEST_INSURER");
+
+        mockMvc.perform(post("/api/v1/admin/partners/{id}/mappings", partner.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/admin/partners/{id}/mappings", partner.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorType").value("DUPLICATE_RESOURCE"));
+    }
+
+    @Test
+    @DisplayName("POST /partners/{id}/mappings: should reject a nonexistent partner")
+    void createMapping_nonexistentPartner_notFound() throws Exception {
+        CreateMappingRequest request = new CreateMappingRequest();
+        request.setInsurerCode("TEST_INSURER");
+
+        mockMvc.perform(post("/api/v1/admin/partners/{id}/mappings", UUID.randomUUID())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.errorType").value("NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("POST /partners/{id}/mappings: should reject an inactive partner")
+    @Transactional
+    void createMapping_inactivePartner_rejected() throws Exception {
+        Partner partner = Partner.builder()
+                .partnerCode("INACTIVE_MAPPING_PARTNER")
+                .partnerName("Inactive Mapping Partner")
+                .partnerType(PartnerType.BANK)
+                .contactEmail("inactive-mapping@example.com")
+                .active(false)
+                .createdBy("admin")
+                .build();
+        partner = partnerRepository.save(partner);
+        CreateMappingRequest request = new CreateMappingRequest();
+        request.setInsurerCode("TEST_INSURER");
+
+        mockMvc.perform(post("/api/v1/admin/partners/{id}/mappings", partner.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorType").value("BUSINESS_VALIDATION_ERROR"));
+    }
+
+    @Test
+    @DisplayName("POST /partners/{id}/mappings: should reject an inactive insurer")
+    @Transactional
+    void createMapping_inactiveInsurer_rejected() throws Exception {
+        Partner partner = Partner.builder()
+                .partnerCode("INACTIVE_INSURER_MAPPING")
+                .partnerName("Inactive Insurer Mapping Partner")
+                .partnerType(PartnerType.BANK)
+                .contactEmail("inactive-insurer-mapping@example.com")
+                .active(true)
+                .createdBy("admin")
+                .build();
+        partner = partnerRepository.save(partner);
+        Insurer inactiveInsurer = insurerRepository.save(Insurer.builder()
+                .insurerCode("INACTIVE_MAPPING_INSURER")
+                .insurerName("Inactive Mapping Insurer")
+                .insurerType(InsurerType.LIFE)
+                .contactEmail("inactive-insurer@example.com")
+                .active(false)
+                .build());
+        CreateMappingRequest request = new CreateMappingRequest();
+        request.setInsurerCode(inactiveInsurer.getInsurerCode());
+
+        mockMvc.perform(post("/api/v1/admin/partners/{id}/mappings", partner.getId())
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorType").value("BUSINESS_VALIDATION_ERROR"));
     }
 
     @Test
