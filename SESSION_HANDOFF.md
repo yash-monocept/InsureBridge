@@ -464,6 +464,12 @@ MODULE 2 - Partner Authentication & API Security Complete
 - Scopes, rate limiting, secret rotation, SSRF validation
 - 47 module tests (26 unit + 21 integration)
 - Postman collection: 26 requests / 30 assertions
+
+MODULE 2 hardening - verified (74d4a9f)
+- RFC 6750 Bearer challenges and RFC 6749 no-store token responses
+- 59 module tests (32 unit/property + 27 integration)
+- Postman collection: 33 requests / 37 assertions
+- Full suite: 129 tests (122 executed, 7 skipped)
 ```
 
 ---
