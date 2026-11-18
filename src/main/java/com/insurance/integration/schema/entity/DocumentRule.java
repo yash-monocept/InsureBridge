@@ -1,6 +1,8 @@
 package com.insurance.integration.schema.entity;
 
 import com.insurance.integration.common.entity.BaseEntity;
+import jakarta.persistence.Access;
+import jakarta.persistence.AccessType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -9,6 +11,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -20,6 +24,7 @@ import java.util.UUID;
  * include and the constraints applied to each.</p>
  */
 @Entity
+@Access(AccessType.FIELD)
 @Table(name = "document_rules")
 @Getter
 @Setter
@@ -30,6 +35,7 @@ public class DocumentRule extends BaseEntity {
 
     /** Schema this rule belongs to. */
     @Column(name = "schema_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID schemaId;
 
     /** Document type (e.g. IDENTITY_PROOF, VEHICLE_DOCUMENT, BOOKING_CONFIRMATION). */

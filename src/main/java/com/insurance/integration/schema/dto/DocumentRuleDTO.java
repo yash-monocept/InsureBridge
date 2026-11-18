@@ -25,13 +25,13 @@ public class DocumentRuleDTO {
     @Schema(description = "Document type", example = "IDENTITY_PROOF")
     private String documentType;
 
-    @Schema(description = "Whether the document is mandatory", example = true)
+    @Schema(description = "Whether the document is mandatory", example = "true")
     private boolean required;
 
     @Schema(description = "JSON array of accepted MIME types", example = "[\"application/pdf\",\"image/jpeg\"]")
     private String allowedMimeTypes;
 
-    @Schema(description = "Maximum file size in MB", example = 10)
+    @Schema(description = "Maximum file size in MB", example = "10")
     private int maxSizeMb;
 
     @Schema(description = "Human-readable description", example = "Government-issued identity proof")

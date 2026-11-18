@@ -30,7 +30,7 @@ public class DocumentMetadataDTO {
     @Schema(description = "Declared MIME type", example = "application/pdf")
     private String declaredMimeType;
 
-    @Schema(description = "Declared size in bytes", example = 245760)
+    @Schema(description = "Declared size in bytes", example = "245760")
     private Long declaredSizeBytes;
 
     @Schema(description = "Document processing status", example = "PENDING")

@@ -22,14 +22,14 @@ public class DocumentRuleCreateRequest {
                 "MEDICAL_REPORT", "POLICY_DOCUMENT", "OTHER"})
     private String documentType;
 
-    @Schema(description = "Whether the document is mandatory", example = true)
+    @Schema(description = "Whether the document is mandatory", example = "true")
     @NotNull(message = "Required flag is required")
     private Boolean required;
 
     @Schema(description = "JSON array of accepted MIME types", example = "[\"application/pdf\",\"image/png\"]")
     private String allowedMimeTypes;
 
-    @Schema(description = "Maximum file size in MB", example = 10)
+    @Schema(description = "Maximum file size in MB", example = "10")
     @NotNull(message = "Max size MB is required")
     private Integer maxSizeMb;
 

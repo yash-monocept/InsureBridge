@@ -30,23 +30,23 @@ public class FieldRuleDTO {
     @Schema(description = "Human-readable label", example = "Customer Mobile Number")
     private String displayName;
 
-    @Schema(description = "Whether the field is mandatory", example = true)
+    @Schema(description = "Whether the field is mandatory", example = "true")
     private boolean required;
 
     @Schema(description = "Expected data type", example = "STRING",
             allowableValues = {"STRING", "NUMBER", "DATE", "BOOLEAN", "ENUM"})
     private FieldDataType dataType;
 
-    @Schema(description = "Minimum string length", example = 1)
+    @Schema(description = "Minimum string length", example = "1")
     private Integer minLength;
 
-    @Schema(description = "Maximum string length", example = 15)
+    @Schema(description = "Maximum string length", example = "15")
     private Integer maxLength;
 
-    @Schema(description = "Minimum numeric value", example = 18)
+    @Schema(description = "Minimum numeric value", example = "18")
     private BigDecimal minValue;
 
-    @Schema(description = "Maximum numeric value", example = 100)
+    @Schema(description = "Maximum numeric value", example = "100")
     private BigDecimal maxValue;
 
     @Schema(description = "Regular expression the value must match", example = "^[0-9]{10}$")

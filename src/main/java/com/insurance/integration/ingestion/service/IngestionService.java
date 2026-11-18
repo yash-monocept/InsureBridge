@@ -3,6 +3,7 @@ package com.insurance.integration.ingestion.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.insurance.integration.common.enums.DocumentStatus;
 import com.insurance.integration.common.enums.IngestionStatus;
+import com.insurance.integration.common.exception.DuplicateResourceException;
 import com.insurance.integration.common.exception.ResourceNotFoundException;
 import com.insurance.integration.ingestion.dto.CustomerDetailDTO;
 import com.insurance.integration.ingestion.dto.DocumentMetadataDTO;
@@ -30,6 +31,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -88,10 +90,10 @@ public class IngestionService {
 
         // 3. Partner must be mapped to the insurer and permitted for the product.
         PartnerInsurerMapping mapping = mappingRepository.findActiveMapping(partnerId, insurer.getId())
-                .orElseThrow(() -> new IllegalStateException(
+                .orElseThrow(() -> new AccessDeniedException(
                         "Partner is not authorised to submit to insurer " + insurer.getInsurerCode()));
         if (!isProductPermitted(mapping, dto.getProductCode())) {
-            throw new IllegalStateException("Product not permitted for this partner-insurer mapping: "
+            throw new AccessDeniedException("Product not permitted for this partner-insurer mapping: "
                     + dto.getProductCode());
         }
 
@@ -102,7 +104,7 @@ public class IngestionService {
         if (requestRepository.existsByIdempotencyKey(idempotencyKey)) {
             IngestionRequest existing = requestRepository.findByIdempotencyKey(idempotencyKey)
                     .orElseThrow();
-            return buildResponse(existing, true);
+            throw new DuplicateResourceException("Submission", "idempotencyKey", idempotencyKey);
         }
 
         // 5. Schema selection for validation.
@@ -136,11 +138,11 @@ public class IngestionService {
                 .userAgent(userAgent)
                 .receivedAt(Instant.now())
                 .build();
-        request = requestRepository.save(request);
+        final IngestionRequest savedRequest = requestRepository.save(request);
 
         // 8. Persist document metadata references (URLs stored but never exposed).
         List<IngestionDocument> documents = dto.getDocuments().stream()
-                .map(doc -> toDocument(request, doc))
+                .map(doc -> toDocument(savedRequest, doc))
                 .collect(Collectors.toList());
         documentRepository.saveAll(documents);
 
@@ -154,7 +156,7 @@ public class IngestionService {
                 request.getId(), partner.getPartnerCode(), insurer.getInsurerCode(),
                 dto.getProductCode(), request.getStatus());
 
-        return buildResponse(request, validation, false);
+        return buildResponse(request, validation);
     }
 
     /**
@@ -176,7 +178,7 @@ public class IngestionService {
         IngestionRequest request = requestRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", submissionId.toString()));
         if (!request.getPartnerId().equals(partnerId)) {
-            throw new IllegalStateException("You do not have permission to view this submission.");
+            throw new ResourceNotFoundException("Submission", submissionId.toString());
         }
         return toDetail(request);
     }
@@ -299,15 +301,8 @@ public class IngestionService {
         }
     }
 
-    private IngestionResponseDTO buildResponse(IngestionRequest request, boolean duplicate) {
-        return buildResponse(request, null, duplicate);
-    }
-
     private IngestionResponseDTO buildResponse(IngestionRequest request,
-                                               ValidationResultDTO validation, boolean duplicate) {
-        String message = duplicate
-                ? "Duplicate idempotency key — existing submission returned."
-                : "Submission received and validated.";
+                                               ValidationResultDTO validation) {
         return IngestionResponseDTO.builder()
                 .submissionId(request.getId())
                 .externalReference(request.getExternalReference())
@@ -320,7 +315,7 @@ public class IngestionService {
                 .validationStatus(validation != null ? validation.getValidationStatus() : null)
                 .documentCount(countDocuments(request.getId()))
                 .receivedAt(request.getReceivedAt())
-                .message(message)
+                .message("Submission received and validated.")
                 .documents(validationService.listDocumentMetadata(request.getId()))
                 .build();
     }
@@ -331,6 +326,9 @@ public class IngestionService {
     }
 
     private String lookupSchemaVersion(UUID schemaId) {
+        if (schemaId == null) {
+            return null;
+        }
         return schemaService.getSchema(schemaId).getSchemaVersion();
     }
 

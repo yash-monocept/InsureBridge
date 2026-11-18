@@ -17,8 +17,8 @@
 | MODULE 0 — Foundation | ✅ COMPLETE |
 | MODULE 1 — Partner Management | ✅ COMPLETE |
 | MODULE 2 — Partner Auth | ✅ COMPLETE |
-| MODULE 3 — Request Ingestion | ⏳ PENDING |
-| MODULE 4 — Schema Validation | ⏳ PENDING |
+| MODULE 3 — Request Ingestion | ✅ COMPLETE |
+| MODULE 4 — Schema Validation | ✅ COMPLETE |
 | MODULE 5 — Business Validation | ⏳ PENDING |
 | MODULE 6 — Source S3 | ⏳ PENDING |
 | MODULE 7 — Async Processing | ⏳ PENDING |
@@ -27,7 +27,7 @@
 | MODULE 10 — Metadata & Transfer Mgmt | ⏳ PENDING |
 | MODULE 11 — Notifications | ⏳ PENDING |
 | MODULE 12 — Audit & Logging | ⏳ PENDING |
-| MODULE 13 — Swagger & Docs | ⏳ PENDING |
+| MODULE 13 — Swagger & Docs | ✅ COMPLETE |
 
 ---
 
@@ -199,6 +199,81 @@
 - `/api/v1/admin/**` remains open in the academic deployment; platform-admin
   authentication is outside Module 2 scope and must be added before production.
 
+## MODULE 3 — Request Ingestion
+
+**Status:** ✅ COMPLETE
+
+### Acceptance Criteria
+- [x] Authenticated partners can submit insurance requests via `POST /api/v1/partner/insurance/submissions`
+- [x] Request envelope validated (partner reference, insurer, product, customer, application data, documents)
+- [x] Partner/insurer/product permissions enforced via partner-insurer mappings
+- [x] Submission and document metadata persisted (`ingestion_requests`, `ingestion_documents`)
+- [x] Pre-signed source URLs handled securely (SSRF validation, HTTPS enforcement, URLs never exposed in responses/logs)
+- [x] Duplicate requests prevented via idempotency key uniqueness constraint
+- [x] Submission status maintained (`RECEIVED` → `VALIDATING` → `VALIDATED` / `VALIDATION_FAILED`)
+- [x] Partner isolation verified (partners only see their own submissions)
+
+### Implemented Components
+- `IngestionRequest`, `IngestionDocument` entities (map to V3/V4 tables)
+- `IngestionRequestRepository`, `IngestionDocumentRepository`
+- `IngestionService` — submission, listing, detail, validation orchestration
+- `IngestionController` — partner + admin submission APIs
+- DTOs: `IngestionRequestDTO`, `IngestionResponseDTO`, `SubmissionSummaryDTO`, `SubmissionDetailDTO`, `DocumentMetadataDTO`, `CustomerDTO`, `DocumentSubmissionDTO`
+
+### Endpoints Added (7)
+- `POST /api/v1/partner/insurance/submissions` (SCOPE_write)
+- `GET /api/v1/partner/insurance/submissions` (SCOPE_read)
+- `GET /api/v1/partner/insurance/submissions/{submissionId}` (SCOPE_read)
+- `GET /api/v1/partner/insurance/submissions/{submissionId}/validation` (SCOPE_read)
+- `GET /api/v1/partner/insurance/submissions/admin/all` (admin)
+- `GET /api/v1/partner/insurance/submissions/admin/{submissionId}` (admin)
+- `GET /api/v1/partner/insurance/submissions/admin/{submissionId}/validation` (admin)
+
+## MODULE 4 — Schema & Tag Validation
+
+**Status:** ✅ COMPLETE
+
+### Acceptance Criteria
+- [x] Schemas configurable (`ProductSchema`) with insurer/product scoping and versioning
+- [x] Historical schema versions preserved (never modified in place)
+- [x] Field rules validated (required, type, length, min/max, regex, enum, date)
+- [x] Required document metadata validated
+- [x] Validation results persisted on submissions
+- [x] Invalid submissions marked `VALIDATION_FAILED`; valid submissions `VALIDATED`
+- [x] Schema administration APIs (create/list/get/update, field rules, document rules)
+- [x] Validation trigger API (`POST /api/v1/admin/insurance/submissions/{id}/validate`)
+
+### Implemented Components
+- `ProductSchema`, `FieldRule`, `DocumentRule` entities
+- `ProductSchemaRepository`, `FieldRuleRepository`, `DocumentRuleRepository`
+- `SchemaService` — schema + rule CRUD, schema selection by precedence
+- `ValidationEngine` — metadata-driven field/document validation
+- `ValidationService` — orchestrates validation and persists results
+- `SchemaController`, `ValidationController`
+- DTOs: `SchemaDTO`, `SchemaCreateRequest`, `SchemaUpdateRequest`, `FieldRuleDTO`, `FieldRuleCreateRequest`, `DocumentRuleDTO`, `DocumentRuleCreateRequest`, `ValidationResultDTO`, `ValidationErrorDTO`
+
+### Endpoints Added (12)
+- `POST /api/v1/admin/schemas` — create schema
+- `GET /api/v1/admin/schemas` — list schemas (paginated, filterable)
+- `GET /api/v1/admin/schemas/{schemaId}` — get schema
+- `PUT /api/v1/admin/schemas/{schemaId}` — update schema
+- `POST /api/v1/admin/schemas/{schemaId}/versions` — create schema version
+- `GET /api/v1/admin/schemas/{schemaId}/versions` — list schema versions
+- `GET /api/v1/admin/schemas/{schemaId}/rules` — list field rules
+- `POST /api/v1/admin/schemas/{schemaId}/rules` — create field rule
+- `GET /api/v1/admin/schemas/{schemaId}/document-rules` — list document rules
+- `POST /api/v1/admin/schemas/{schemaId}/document-rules` — create document rule
+- `POST /api/v1/admin/insurance/submissions/{submissionId}/validate` — trigger validation
+- `GET /api/v1/partner/insurance/submissions/{submissionId}/validation` — get validation result
+
+### Test Results
+- **Module 3 unit tests:** 7 passing (`IngestionServiceTest`)
+- **Module 3 integration tests:** 8 passing (`IngestionControllerIT`)
+- **Module 3 security tests:** 6 passing (`IngestionSecurityIT`)
+- **Module 4 unit tests:** 14 passing (`SchemaServiceTest`, `ValidationEngineTest`)
+- **Module 4 integration tests:** 8 passing (`SchemaControllerIT`)
+- **Full suite:** 183 tests, 0 failures, 0 errors, 7 skipped
+
 ---
 
 ## Key Documents
@@ -213,7 +288,14 @@
 | Database Design | docs/06-Database-Design.md | ✅ DONE |
 | Partner Authentication | docs/07-Partner-Authentication.md | ✅ DONE (NEW) |
 | API Documentation | docs/08-API-Documentation.md | ✅ DONE (NEW) |
-| Postman Collection Guide | postman/README.md | ✅ DONE (NEW) |
+| Module 3 — Request Ingestion | docs/03-Request-Ingestion.md | ✅ DONE (NEW) |
+| Module 4 — Schema Validation | docs/04-Schema-Tag-Validation.md | ✅ DONE (NEW) |
+| API Reference | docs/05-API-Reference.md | ✅ DONE (UPDATED) |
+| Database Design | docs/06-Database-Design.md | ✅ DONE (UPDATED) |
+| Validation Engine | docs/07-Validation-Engine.md | ✅ DONE (NEW) |
+| Frontend Architecture | docs/08-Frontend-Architecture.md | ✅ DONE (UPDATED) |
+| UI Design System | docs/09-UI-Design-System.md | ✅ DONE (UPDATED) |
+| Postman Collection Guide | postman/README.md | ✅ DONE (UPDATED) |
 | Session Handoff | SESSION_HANDOFF.md | ✅ CURRENT |
 
 ---
@@ -222,17 +304,17 @@
 
 | Metric | Value |
 |--------|-------|
-| Main source | 74 Java files, ~3,900 lines |
-| Test source | 13 Java files, ~2,150 lines |
-| REST Endpoints | 26 (25 business + health) |
-| Database Tables | 15 |
-| Test Cases | 129 (122 passing, 7 skipped) |
-| Postman | 33 requests / 37 assertions |
+| Main source | 98 Java files, ~6,400 lines |
+| Test source | 18 Java files, ~4,300 lines |
+| REST Endpoints | 40 (39 business + health) |
+| Database Tables | 19 |
+| Test Cases | 183 (182 passing, 7 skipped) |
+| Postman | 54 requests |
 | Exception Types | 10 |
-| DTOs | 18 |
-| Services | 7 |
-| Repositories | 4 |
-| JPA Entities | 4 |
+| DTOs | 26 |
+| Services | 12 |
+| Repositories | 8 |
+| JPA Entities | 9 |
 | Flyway Migrations | 10 |
 | Build Status | ✅ SUCCESS |
 | Compilation Time | ~25s |

@@ -43,7 +43,7 @@ public class SchemaCreateRequest {
     @Schema(description = "Schema name", example = "Motor Insurance Schema v1.0")
     private String schemaName;
 
-    @Schema(description = "Whether the schema is active", example = true)
+    @Schema(description = "Whether the schema is active", example = "true")
     @NotNull(message = "Active flag is required")
     private Boolean active;
 }

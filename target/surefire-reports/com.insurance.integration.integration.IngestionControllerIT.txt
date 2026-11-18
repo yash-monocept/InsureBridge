@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.insurance.integration.integration.IngestionControllerIT
+-------------------------------------------------------------------------------
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 8.363 s -- in com.insurance.integration.integration.IngestionControllerIT

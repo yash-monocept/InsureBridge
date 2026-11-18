@@ -1,6 +1,8 @@
 package com.insurance.integration.schema.entity;
 
 import com.insurance.integration.common.entity.BaseEntity;
+import jakarta.persistence.Access;
+import jakarta.persistence.AccessType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -9,6 +11,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -20,6 +24,7 @@ import java.util.UUID;
  * product type; {@code insurer_id}/{@code partner_id} being NULL means a global default.</p>
  */
 @Entity
+@Access(AccessType.FIELD)
 @Table(name = "product_schemas")
 @Getter
 @Setter
@@ -30,10 +35,12 @@ public class ProductSchema extends BaseEntity {
 
     /** Insurer this schema belongs to (NULL = global schema). */
     @Column(name = "insurer_id")
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID insurerId;
 
     /** Partner this schema belongs to (NULL = global schema). */
     @Column(name = "partner_id")
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID partnerId;
 
     /** Insurance product type (e.g. MOTOR_INSURANCE, TRAVEL_INSURANCE, HEALTH_INSURANCE). */

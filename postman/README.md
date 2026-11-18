@@ -68,3 +68,33 @@ application stops.
 - `client_secret` is returned only when a client is created or rotated. The
   collection stores it in Postman collection variables for the duration of the
   run; it is never written to disk by the application.
+
+## Module 3-4 Collection
+
+A second collection, `Module-3-4-Submissions-Schema.postman_collection.json`,
+covers the new Modules 3 & 4 endpoints:
+
+| # | Request |
+|---|---------|
+| A | Submit motor insurance application |
+| B | Submit travel insurance application |
+| C | Submit health insurance application |
+| D | Submit invalid application (expects 400) |
+| E | Retrieve partner submission |
+| F | Retrieve admin submission |
+| G | Retrieve validation results |
+| H | Create schema |
+| I | Update schema |
+| J | Create schema version |
+| K | Retrieve schemas |
+| L | Trigger validation |
+
+Set the `accessToken` environment variable from a token issued via the Module 2
+collection, then run:
+
+```bash
+npx postman-cli collection run \
+  postman/Module-3-4-Submissions-Schema.postman_collection.json \
+  -e postman/Insurance-Integration-Local.postman_environment.json
+```
+

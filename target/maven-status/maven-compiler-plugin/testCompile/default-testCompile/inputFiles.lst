@@ -1,11 +1,17 @@
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\ApplicationContextTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\H2DatabaseProfileTest.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\IngestionControllerIT.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\IngestionSecurityIT.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\InsurerControllerIT.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\PartnerAuthenticationIT.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\PartnerControllerIT.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\integration\SchemaControllerIT.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\ingestion\IngestionServiceTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\insurer\InsurerServiceTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\partner\PartnerMappingServiceTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\partner\PartnerServiceTest.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\schema\SchemaServiceTest.java
+C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\schema\ValidationEngineTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\ClientCredentialsServiceTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\JwtServiceTest.java
 C:\Users\YashAhuja\Projects\Insurance-Integration-Middleware-and-Document-Transfer-Platform\src\test\java\com\insurance\integration\unit\security\RateLimitServiceTest.java

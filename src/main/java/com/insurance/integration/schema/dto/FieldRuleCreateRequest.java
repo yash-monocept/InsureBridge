@@ -28,7 +28,7 @@ public class FieldRuleCreateRequest {
     @Schema(description = "Human-readable label", example = "Vehicle Registration Number")
     private String displayName;
 
-    @Schema(description = "Whether the field is mandatory", example = true)
+    @Schema(description = "Whether the field is mandatory", example = "true")
     @NotNull(message = "Required flag is required")
     private Boolean required;
 
@@ -37,16 +37,16 @@ public class FieldRuleCreateRequest {
             allowableValues = {"STRING", "NUMBER", "DATE", "BOOLEAN", "ENUM"})
     private FieldDataType dataType;
 
-    @Schema(description = "Minimum string length", example = 1)
+    @Schema(description = "Minimum string length", example = "1")
     private Integer minLength;
 
-    @Schema(description = "Maximum string length", example = 20)
+    @Schema(description = "Maximum string length", example = "20")
     private Integer maxLength;
 
-    @Schema(description = "Minimum numeric value", example = 1900)
+    @Schema(description = "Minimum numeric value", example = "1900")
     private BigDecimal minValue;
 
-    @Schema(description = "Maximum numeric value", example = 2100)
+    @Schema(description = "Maximum numeric value", example = "2100")
     private BigDecimal maxValue;
 
     @Schema(description = "Regular expression the value must match", example = "^[A-Z]{2}[0-9]{2}$")

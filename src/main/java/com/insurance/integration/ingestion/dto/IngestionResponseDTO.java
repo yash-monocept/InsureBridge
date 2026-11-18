@@ -45,7 +45,7 @@ public class IngestionResponseDTO {
     @Schema(description = "Validation status (populated once validation runs)", example = "PENDING")
     private String validationStatus;
 
-    @Schema(description = "Number of documents referenced", example = 2)
+    @Schema(description = "Number of documents referenced", example = "2")
     private int documentCount;
 
     @Schema(description = "Timestamp the submission was received")

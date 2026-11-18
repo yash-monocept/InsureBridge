@@ -5,14 +5,17 @@
 
 ---
 
-## Current Status: ✅ MODULES 0, 1 & 2 COMPLETE
+## Current Status: ✅ MODULES 0, 1, 2, 3 & 4 COMPLETE
 
 - **Module 0:** Project Foundation — ✅ COMPLETE
 - **Module 1:** Partner Management — ✅ COMPLETE
 - **Module 2:** Partner Authentication & API Security — ✅ COMPLETE & VERIFIED
-- **Test Results:** 129 tests (122 executed, 7 skipped without Docker, 0 failures)
-- **Postman:** 33 requests / 37 assertions, 0 failures
+- **Module 3:** Request Ingestion — ✅ COMPLETE
+- **Module 4:** Schema & Tag Validation — ✅ COMPLETE
+- **Test Results:** 183 tests (182 executed, 7 skipped without Docker, 0 failures)
+- **Postman:** Module 2: 33 requests / 37 assertions, 0 failures; Module 3-4 collection being added
 - **Build Status:** SUCCESS
+- **Frontend:** Professionally redesigned operations console with submissions + schema pages
 
 ---
 
@@ -21,10 +24,10 @@
 - **Application:** Modular monolith, Spring Boot 3.3.5, Java 21
 - **Database:** PostgreSQL 15 (production/local), H2 in-memory (dev/test)
 - **Migrations:** 10 Flyway migrations (V1–V10)
-- **APIs:** 26 endpoints (25 business + health)
+- **APIs:** 40 endpoints (39 business + health)
 - **Auth:** OAuth 2.0 Client Credentials with RS256 JWTs, scopes, and rate limiting
 - **AWS:** SDK configured, LocalStack support ready (not yet used by a module)
-- **Testing:** 129 tests (JUnit 5, MockMvc, H2, randomized property tests)
+- **Testing:** 183 tests (JUnit 5, MockMvc, H2, randomized property tests)
 - **Build:** Maven, executable JAR `target/integration-middleware-1.0.0-SNAPSHOT.jar`
 
 ---
@@ -87,9 +90,53 @@ RS256 JWTs, rate limiting, credential rotation, and SSRF protection.
 **Verification (Nov 16):** 27 integration tests, 32 unit/property tests, and a
 33-request Postman run all pass.
 
+### MODULE 3 — Request Ingestion ✅
+
+**Purpose:** Accept insurance application requests from authenticated partners, validate authorisation, persist submission + document metadata, and invoke schema validation.
+
+**Deliverables:**
+- `IngestionRequest`, `IngestionDocument` entities (map to V3/V4 tables)
+- `IngestionRequestRepository`, `IngestionDocumentRepository`
+- `IngestionService` — submission, listing, detail, validation orchestration
+- `IngestionController` — partner + admin submission APIs
+- DTOs: `IngestionRequestDTO`, `IngestionResponseDTO`, `SubmissionSummaryDTO`, `SubmissionDetailDTO`, `DocumentMetadataDTO`, `CustomerDTO`, `DocumentSubmissionDTO`
+
+**Endpoints Added:**
+- `POST /api/v1/partner/insurance/submissions` (SCOPE_write)
+- `GET /api/v1/partner/insurance/submissions` (SCOPE_read)
+- `GET /api/v1/partner/insurance/submissions/{submissionId}` (SCOPE_read)
+- `GET /api/v1/partner/insurance/submissions/{submissionId}/validation` (SCOPE_read)
+- `GET /api/v1/partner/insurance/submissions/admin/all` (admin)
+- `GET /api/v1/partner/insurance/submissions/admin/{submissionId}` (admin)
+- `GET /api/v1/partner/insurance/submissions/admin/{submissionId}/validation` (admin)
+
+**Acceptance Criteria:** ✅ ALL MET
+**Tests:** 7 unit + 8 integration + 6 security
+
+### MODULE 4 — Schema & Tag Validation ✅
+
+**Purpose:** Configurable schema engine validating field and document requirements per insurer/product.
+
+**Deliverables:**
+- `ProductSchema`, `FieldRule`, `DocumentRule` entities
+- `ProductSchemaRepository`, `FieldRuleRepository`, `DocumentRuleRepository`
+- `SchemaService` — schema + rule CRUD, schema selection by precedence
+- `ValidationEngine` — metadata-driven field/document validation
+- `ValidationService` — orchestrates validation and persists results
+- `SchemaController`, `ValidationController`
+- DTOs: `SchemaDTO`, `FieldRuleDTO`, `DocumentRuleDTO`, `ValidationResultDTO`, etc.
+
+**Endpoints Added:**
+- `POST/GET/PUT /api/v1/admin/schemas` (+ versions, rules, document-rules)
+- `POST /api/v1/admin/insurance/submissions/{id}/validate`
+- `GET /api/v1/partner/insurance/submissions/{id}/validation`
+
+**Acceptance Criteria:** ✅ ALL MET
+**Tests:** 14 unit + 8 integration
+
 ---
 
-## API ENDPOINTS (26 TOTAL)
+## API ENDPOINTS (40 TOTAL)
 
 ```
 Health:
@@ -132,6 +179,32 @@ Admin — API Client Lifecycle:
   PUT    /api/v1/admin/partners/{partnerId}/api-clients/{clientId}/rotate
   PUT    /api/v1/admin/partners/{partnerId}/api-clients/{clientId}/activate
   PUT    /api/v1/admin/partners/{partnerId}/api-clients/{clientId}/deactivate
+
+Module 3 — Insurance Submissions (Partner):
+  POST   /api/v1/partner/insurance/submissions       (JWT write)
+  GET    /api/v1/partner/insurance/submissions       (JWT read, paginated)
+  GET    /api/v1/partner/insurance/submissions/{id}  (JWT read)
+  GET    /api/v1/partner/insurance/submissions/{id}/validation (JWT read)
+
+Module 3 — Insurance Submissions (Admin):
+  GET    /api/v1/partner/insurance/submissions/admin/all          (paginated)
+  GET    /api/v1/partner/insurance/submissions/admin/{id}
+  GET    /api/v1/partner/insurance/submissions/admin/{id}/validation
+
+Module 4 — Schema Management (Admin):
+  POST   /api/v1/admin/schemas
+  GET    /api/v1/admin/schemas            (paginated, filterable)
+  GET    /api/v1/admin/schemas/{id}
+  PUT    /api/v1/admin/schemas/{id}
+  POST   /api/v1/admin/schemas/{id}/versions
+  GET    /api/v1/admin/schemas/{id}/versions
+  GET    /api/v1/admin/schemas/{id}/rules
+  POST   /api/v1/admin/schemas/{id}/rules
+  GET    /api/v1/admin/schemas/{id}/document-rules
+  POST   /api/v1/admin/schemas/{id}/document-rules
+
+Module 4 — Validation Trigger (Admin):
+  POST   /api/v1/admin/insurance/submissions/{id}/validate
 ```
 
 Partner API authentication flow:
@@ -165,7 +238,7 @@ RateLimitServiceTest:               4 pass
 SsrfValidatorTest:                  7 pass
 SecurityPropertyTest:               6 pass
 ────────────────────────────────────────────────
-TOTAL:                            129 tests, 0 failures, 0 errors, 7 skipped
+TOTAL:                            183 tests, 0 failures, 0 errors, 7 skipped
 ```
 
 **Run command:**

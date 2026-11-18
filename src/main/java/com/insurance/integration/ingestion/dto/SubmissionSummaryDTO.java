@@ -41,9 +41,9 @@ public class SubmissionSummaryDTO {
     @Schema(description = "Processing status", example = "RECEIVED")
     private String processingStatus;
 
-    @Schema(description = "Number of failed validation checks", example = 0)
+    @Schema(description = "Number of failed validation checks", example = "0")
     private int validationErrorCount;
 
-    @Schema(description = "Number of documents referenced", example = 2)
+    @Schema(description = "Number of documents referenced", example = "2")
     private int documentCount;
 }

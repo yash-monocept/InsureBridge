@@ -6,7 +6,11 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Access;
+import jakarta.persistence.AccessType;
 import jakarta.persistence.FetchType;
+
+import java.util.UUID;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -15,6 +19,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Individual document reference within an ingestion request (Module 3 - Request Ingestion).
@@ -25,6 +31,7 @@ import lombok.Setter;
  * without revealing the full URL.</p>
  */
 @Entity
+@Access(AccessType.FIELD)
 @Table(name = "ingestion_documents")
 @Getter
 @Setter
@@ -39,6 +46,7 @@ public class IngestionDocument extends BaseEntity {
     private IngestionRequest ingestionRequest;
 
     @Column(name = "ingestion_request_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID ingestionRequestId;
 
     /** Document type (e.g. IDENTITY_PROOF, VEHICLE_DOCUMENT, BOOKING_CONFIRMATION). */

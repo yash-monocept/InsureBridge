@@ -1,0 +1,177 @@
+{
+  "info": {
+    "name": "Module 3-4 Insurance Submissions & Schema Validation",
+    "_postman_id": "module-3-4-insurance-submissions",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "InsureBridge Modules 3 (Request Ingestion) and 4 (Schema & Tag Validation) API requests. Requires a partner JWT obtained via the Module 2 collection."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "partnerId", "value": "", "type": "string" },
+    { "key": "submissionId", "value": "", "type": "string" },
+    { "key": "schemaId", "value": "", "type": "string" },
+    { "key": "insurerCode", "value": "MAX_LIFE", "type": "string" },
+    { "key": "productCode", "value": "MOTOR_INSURANCE", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "A. Submit motor insurance application",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"partnerReferenceId\": \"CAR-92831\",\n  \"insurerCode\": \"{{insurerCode}}\",\n  \"productCode\": \"MOTOR_INSURANCE\",\n  \"schemaVersion\": \"1.0\",\n  \"idempotencyKey\": \"idem_motor_92831\",\n  \"customer\": {\n    \"name\": \"Rahul Sharma\",\n    \"mobile\": \"9999999999\",\n    \"email\": \"rahul@example.com\"\n  },\n  \"applicationData\": {\n    \"vehicle\": {\n      \"make\": \"Hyundai\",\n      \"model\": \"Creta\",\n      \"registrationNumber\": \"DL01AB1234\",\n      \"manufacturingYear\": 2026\n    }\n  },\n  \"documents\": [\n    {\n      \"documentType\": \"IDENTITY_PROOF\",\n      \"fileName\": \"identity.pdf\",\n      \"contentType\": \"application/pdf\",\n      \"sourceUrl\": \"https://bucket.s3.amazonaws.com/identity.pdf\"\n    },\n    {\n      \"documentType\": \"VEHICLE_DOCUMENT\",\n      \"fileName\": \"vehicle.pdf\",\n      \"contentType\": \"application/pdf\",\n      \"sourceUrl\": \"https://bucket.s3.amazonaws.com/vehicle.pdf\"\n    }\n  ]\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/partner/insurance/submissions", "host": ["{{baseUrl}}"], "path": ["api","v1","partner","insurance","submissions"] }
+      },
+      "response": []
+    },
+    {
+      "name": "B. Submit travel insurance application",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"partnerReferenceId\": \"TRV-55102\",\n  \"insurerCode\": \"{{insurerCode}}\",\n  \"productCode\": \"TRAVEL_INSURANCE\",\n  \"schemaVersion\": \"1.0\",\n  \"idempotencyKey\": \"idem_travel_55102\",\n  \"customer\": {\n    \"name\": \"Priya Mehta\",\n    \"mobile\": \"8888888888\",\n    \"email\": \"priya@example.com\"\n  },\n  \"applicationData\": {\n    \"passenger\": { \"age\": 30 },\n    \"journey\": {\n      \"departureDate\": \"2026-12-01\",\n      \"destination\": \"Goa\",\n      \"bookingReference\": \"BK-12345\"\n    }\n  },\n  \"documents\": [\n    {\n      \"documentType\": \"IDENTITY_PROOF\",\n      \"fileName\": \"passport.pdf\",\n      \"contentType\": \"application/pdf\",\n      \"sourceUrl\": \"https://bucket.s3.amazonaws.com/passport.pdf\"\n    },\n    {\n      \"documentType\": \"BOOKING_CONFIRMATION\",\n      \"fileName\": \"booking.pdf\",\n      \"contentType\": \"application/pdf\",\n      \"sourceUrl\": \"https://bucket.s3.amazonaws.com/booking.pdf\"\n    }\n  ]\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/partner/insurance/submissions", "host": ["{{baseUrl}}"], "path": ["api","v1","partner","insurance","submissions"] }
+      },
+      "response": []
+    },
+    {
+      "name": "C. Submit health insurance application",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"partnerReferenceId\": \"HLT-77331\",\n  \"insurerCode\": \"CARE_HEALTH\",\n  \"productCode\": \"HEALTH_INSURANCE\",\n  \"schemaVersion\": \"1.0\",\n  \"idempotencyKey\": \"idem_health_77331\",\n  \"customer\": {\n    \"name\": \"Amit Verma\",\n    \"mobile\": \"7777777777\",\n    \"email\": \"amit@example.com\"\n  },\n  \"applicationData\": {\n    \"insuredPersons\": [\n      { \"name\": \"Amit Verma\", \"age\": 35, \"relationship\": \"SELF\" }\n    ],\n    \"coverage\": { \"type\": \"INDIVIDUAL\", \"sumInsured\": 500000 }\n  },\n  \"documents\": [\n    {\n      \"documentType\": \"IDENTITY_PROOF\",\n      \"fileName\": \"aadhaar.pdf\",\n      \"contentType\": \"application/pdf\",\n      \"sourceUrl\": \"https://bucket.s3.amazonaws.com/aadhaar.pdf\"\n    },\n    {\n      \"documentType\": \"MEDICAL_REPORT\",\n      \"fileName\": \"medical.pdf\",\n      \"contentType\": \"application/pdf\",\n      \"sourceUrl\": \"https://bucket.s3.amazonaws.com/medical.pdf\"\n    }\n  ]\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/partner/insurance/submissions", "host": ["{{baseUrl}}"], "path": ["api","v1","partner","insurance","submissions"] }
+      },
+      "response": []
+    },
+    {
+      "name": "D. Submit invalid application (missing required fields)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"partnerReferenceId\": \"BAD-001\",\n  \"insurerCode\": \"{{insurerCode}}\",\n  \"productCode\": \"MOTOR_INSURANCE\",\n  \"customer\": {}\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/partner/insurance/submissions", "host": ["{{baseUrl}}"], "path": ["api","v1","partner","insurance","submissions"] }
+      },
+      "response": []
+    },
+    {
+      "name": "E. Retrieve partner submission",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/v1/partner/insurance/submissions/{{submissionId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","partner","insurance","submissions","{{submissionId}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "F. Retrieve admin submission",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/partner/insurance/submissions/admin/{{submissionId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","partner","insurance","submissions","admin","{{submissionId}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "G. Retrieve validation results",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/v1/partner/insurance/submissions/{{submissionId}}/validation", "host": ["{{baseUrl}}"], "path": ["api","v1","partner","insurance","submissions","{{submissionId}}","validation"] }
+      },
+      "response": []
+    },
+    {
+      "name": "H. Create schema",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productType\": \"MOTOR_INSURANCE\",\n  \"schemaVersion\": \"1.1\",\n  \"schemaName\": \"Motor Insurance Schema v1.1\",\n  \"active\": true\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/schemas", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","schemas"] }
+      },
+      "response": []
+    },
+    {
+      "name": "I. Update schema",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"schemaName\": \"Motor Insurance Schema v1.1 Updated\",\n  \"active\": true\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/schemas/{{schemaId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","schemas","{{schemaId}}"] }
+      },
+      "response": []
+    },
+    {
+      "name": "J. Create schema version",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productType\": \"MOTOR_INSURANCE\",\n  \"schemaVersion\": \"2.0\",\n  \"schemaName\": \"Motor Insurance Schema v2.0\",\n  \"active\": true\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/schemas/{{schemaId}}/versions", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","schemas","{{schemaId}}","versions"] }
+      },
+      "response": []
+    },
+    {
+      "name": "K. Retrieve schemas",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/schemas?productType=MOTOR_INSURANCE&page=0&size=10", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","schemas"], "query": [ { "key": "productType", "value": "MOTOR_INSURANCE" }, { "key": "page", "value": "0" }, { "key": "size", "value": "10" } ] }
+      },
+      "response": []
+    },
+    {
+      "name": "L. Trigger validation",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": { "raw": "{{baseUrl}}/api/v1/admin/insurance/submissions/{{submissionId}}/validate", "host": ["{{baseUrl}}"], "path": ["api","v1","admin","insurance","submissions","{{submissionId}}","validate"] }
+      },
+      "response": []
+    }
+  ]
+}

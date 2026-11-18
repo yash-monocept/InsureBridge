@@ -10,6 +10,7 @@ import com.insurance.integration.schema.entity.ProductSchema;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -32,6 +33,8 @@ import java.util.regex.Pattern;
 public class ValidationEngine {
 
     private static final String DATE_FORMAT_DEFAULT = "yyyy-MM-dd";
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
      * Evaluate a submission against a schema's field and document rules.
@@ -148,7 +151,7 @@ public class ValidationEngine {
     }
 
     private void evaluateString(FieldRuleDTO rule, JsonNode value, List<ValidationErrorDTO> errors) {
-        if (!value.isTextual() && !value.canConvertToTextual()) {
+        if (!value.isTextual()) {
             errors.add(error(rule, "INVALID_TYPE",
                     "Field '" + rule.getDisplayName() + "' must be a string", value.toString()));
             return;
@@ -236,8 +239,7 @@ public class ValidationEngine {
         ObjectNode root = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
         if (customerData != null && !customerData.isBlank()) {
             try {
-                root.set("customer", com.fasterxml.jackson.databind.ObjectMapper
-                        .shared().readTree(customerData));
+                root.set("customer", MAPPER.readTree(customerData));
             } catch (Exception e) {
                 root.putObject("customer");
             }
@@ -246,8 +248,7 @@ public class ValidationEngine {
         }
         if (productData != null && !productData.isBlank()) {
             try {
-                root.set("applicationData", com.fasterxml.jackson.databind.ObjectMapper
-                        .shared().readTree(productData));
+                root.set("applicationData", MAPPER.readTree(productData));
             } catch (Exception e) {
                 root.putObject("applicationData");
             }
@@ -258,19 +259,33 @@ public class ValidationEngine {
     }
 
     private JsonNode resolveValue(JsonNode root, String fieldPath) {
-        // Try direct path, then under applicationData, then under customer
-        String[] candidates = {
-                fieldPath,
-                "applicationData." + fieldPath,
-                "customer." + fieldPath
-        };
-        for (String candidate : candidates) {
-            JsonNode node = root.path(candidate);
-            if (!node.isMissingNode() && !node.isNull()) {
-                return node;
-            }
+        // Resolve a dot-notation path (e.g. customer.name or vehicle.registrationNumber)
+        // against the submission root. The field may live at the top level, under
+        // applicationData, or under customer.
+        JsonNode node = traverse(root, fieldPath);
+        if (node != null && !node.isMissingNode() && !node.isNull()) {
+            return node;
+        }
+        node = traverse(root, "applicationData." + fieldPath);
+        if (node != null && !node.isMissingNode() && !node.isNull()) {
+            return node;
+        }
+        node = traverse(root, "customer." + fieldPath);
+        if (node != null && !node.isMissingNode() && !node.isNull()) {
+            return node;
         }
         return null;
+    }
+
+    private JsonNode traverse(JsonNode root, String dottedPath) {
+        JsonNode cur = root;
+        for (String part : dottedPath.split("\\.")) {
+            if (cur == null || cur.isMissingNode() || !cur.isObject()) {
+                return null;
+            }
+            cur = cur.path(part);
+        }
+        return cur;
     }
 
     private boolean hasDocument(List<IngestionDocumentRef> documents, String documentType,

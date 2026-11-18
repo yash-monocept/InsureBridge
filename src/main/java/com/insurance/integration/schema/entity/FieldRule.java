@@ -2,6 +2,8 @@ package com.insurance.integration.schema.entity;
 
 import com.insurance.integration.common.entity.BaseEntity;
 import com.insurance.integration.common.enums.FieldDataType;
+import jakarta.persistence.Access;
+import jakarta.persistence.AccessType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,7 +14,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -23,6 +28,7 @@ import java.util.UUID;
  * request JSON (e.g. {@code customer.name} or {@code vehicle.registrationNumber}).</p>
  */
 @Entity
+@Access(AccessType.FIELD)
 @Table(name = "field_rules")
 @Getter
 @Setter
@@ -33,6 +39,7 @@ public class FieldRule extends BaseEntity {
 
     /** Schema this rule belongs to. */
     @Column(name = "schema_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID schemaId;
 
     /** Dot-notation path into the submitted JSON, e.g. customer.name or vehicle.make. */
@@ -64,11 +71,11 @@ public class FieldRule extends BaseEntity {
 
     /** Minimum permitted numeric value. */
     @Column(name = "min_value", precision = 19, scale = 4)
-    private java.math.BigDecimal minValue;
+    private BigDecimal minValue;
 
     /** Maximum permitted numeric value. */
     @Column(name = "max_value", precision = 19, scale = 4)
-    private java.math.BigDecimal maxValue;
+    private BigDecimal maxValue;
 
     /** Regular expression the string value must match. */
     @Column(name = "regex_pattern", length = 500)

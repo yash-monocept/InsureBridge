@@ -6,10 +6,17 @@
     insurerPage: 0,
     partnerPages: 0,
     insurerPages: 0,
+    submissionPage: 0,
+    submissionPages: 0,
+    schemaPage: 0,
+    schemaPages: 0,
     mappingPartner: null,
+    submissionId: null,
+    schemaId: null,
     accessToken: "",
     refreshToken: "",
-    partnerSearchTimer: null
+    partnerSearchTimer: null,
+    mobileMenuOpen: false
   };
 
   const $ = (id) => document.getElementById(id);
@@ -140,15 +147,36 @@
     return node("span", `status-pill ${active ? "status-active" : "status-inactive"}`, active ? "Active" : "Inactive");
   }
 
+  function toggleMobileMenu() {
+    state.mobileMenuOpen = !state.mobileMenuOpen;
+    const sidebar = document.querySelector(".sidebar");
+    const overlay = document.querySelector(".mobile-menu-overlay");
+    const toggle = $("mobile-menu-toggle");
+    if (state.mobileMenuOpen) {
+      sidebar.classList.add("open");
+      overlay.classList.add("open");
+      toggle.setAttribute("aria-expanded", "true");
+    } else {
+      sidebar.classList.remove("open");
+      overlay.classList.remove("open");
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  }
+
   function setPage(name) {
     document.querySelectorAll(".page").forEach(page => page.classList.toggle("active", page.id === `page-${name}`));
     document.querySelectorAll(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.page === name));
     const activeLink = document.querySelector(`.nav-link[data-page="${name}"]`);
     $("breadcrumb-current").textContent = activeLink ? activeLink.textContent.trim() : name;
+    if (state.mobileMenuOpen) toggleMobileMenu();
     if (name === "overview") loadOverview();
     if (name === "partners") loadPartners();
     if (name === "insurers") loadInsurers();
     if (name === "clients") loadPartnerOptions();
+    if (name === "submissions") loadSubmissions();
+    if (name === "schemas") loadSchemas();
+    if (name === "submission-detail") loadSubmissionDetail();
+    if (name === "schema-detail") loadSchemaDetail();
   }
 
   async function loadHealth() {
@@ -267,6 +295,263 @@
       table.append(emptyRow(6, error.message));
       $("insurers-count").textContent = "Could not load insurers";
       showError(error);
+    }
+  }
+
+  // ─── Submissions page ───
+
+  async function loadSubmissions() {
+    const table = $("submissions-table");
+    table.replaceChildren();
+    const query = new URLSearchParams({ page: String(state.submissionPage), size: "10", sortBy: "receivedAt", sortDir: "DESC" });
+    const search = $("submission-search").value.trim();
+    const status = $("submission-status-filter").value;
+    const productType = $("submission-product-filter").value;
+    const insurerCode = $("submission-insurer-filter").value;
+    if (search) query.set("search", search);
+    if (status) query.set("status", status);
+    if (productType) query.set("productType", productType);
+    if (insurerCode) query.set("insurerCode", insurerCode);
+    try {
+      const result = await request(`/api/v1/partner/insurance/submissions?${query}`);
+      (result.records || []).forEach(sub => table.append(submissionRow(sub)));
+      if (!result.records?.length) table.append(emptyRow(9, "No submissions match these filters."));
+      state.submissionPages = result.totalPages || 0;
+      $("submissions-footer").textContent = `${result.totalRecords ?? 0} submission${result.totalRecords === 1 ? "" : "s"} · Page ${state.submissionPage + 1}${state.submissionPages ? ` of ${state.submissionPages}` : ""}`;
+    } catch (error) {
+      table.append(emptyRow(9, error.message));
+      showError(error);
+    }
+    // populate insurer filter
+    try {
+      const insurers = await request("/api/v1/admin/insurers?page=0&size=100&sortBy=insurerName&sortDir=ASC");
+      const select = $("submission-insurer-filter");
+      const current = select.value;
+      select.replaceChildren(new Option("All insurers", ""));
+      (insurers.records || []).forEach(insurer => select.append(new Option(insurer.insurerName, insurer.insurerCode)));
+      if (current) select.value = current;
+    } catch { /* insurers optional */ }
+  }
+
+  function submissionRow(sub) {
+    const row = document.createElement("tr");
+    appendCell(row, sub.externalReference || "—");
+    appendCell(row, sub.partnerName || "—");
+    appendCell(row, sub.insurerCode || "—");
+    appendCell(row, sub.productCode || "—");
+    appendCell(row, sub.receivedAt ? new Date(sub.receivedAt).toLocaleString() : "—");
+    appendCell(row, statusCell(sub.status), "status-cell");
+    appendCell(row, String(sub.validationErrorCount ?? 0));
+    appendCell(row, String(sub.documentCount ?? 0));
+    const actions = node("div", "row-actions");
+    addAction(actions, "Details", "submission-details", sub.submissionId);
+    appendCell(row, actions);
+    return row;
+  }
+
+  function statusCell(status) {
+    const span = node("span", `status-pill ${statusClass(status)}`, status);
+    return span;
+  }
+
+  function statusClass(status) {
+    switch (status) {
+      case "VALIDATED": return "validated";
+      case "VALIDATION_FAILED": return "validation-failed";
+      default: return "received";
+    }
+  }
+
+  async function loadSubmissionDetail() {
+    if (!state.submissionId) return;
+    const detail = $("submission-detail-content");
+    const loading = $("submission-detail-loading");
+    detail.classList.add("hidden");
+    loading.classList.remove("hidden");
+    try {
+      const result = await request(`/api/v1/partner/insurance/submissions/${encodeURIComponent(state.submissionId)}`);
+      const d = result.data;
+      $("detail-submission-id").textContent = d.submissionId || "—";
+      $("detail-external-reference").textContent = d.externalReference || "—";
+      $("detail-status").textContent = d.status || "—";
+      $("detail-status").className = `status-pill ${statusClass(d.status)}`;
+      $("detail-received-at").textContent = d.receivedAt ? new Date(d.receivedAt).toLocaleString() : "—";
+      $("detail-validation-status").textContent = d.validationStatus || "—";
+      $("detail-validation-status").className = `status-pill ${statusClass(d.validationStatus)}`;
+      $("detail-validated-at").textContent = d.validatedAt ? new Date(d.validatedAt).toLocaleString() : "—";
+      $("detail-partner-name").textContent = d.partnerName || "—";
+      $("detail-partner-code").textContent = d.partnerCode || "—";
+      $("detail-partner-type").textContent = d.partnerType || "—";
+      $("detail-insurer-name").textContent = d.insurerName || "—";
+      $("detail-insurer-code").textContent = d.insurerCode || "—";
+      $("detail-product-code").textContent = d.productCode || "—";
+      $("detail-schema-version").textContent = d.schemaVersion || "—";
+      $("detail-customer-name").textContent = (d.customer && d.customer.name) || "—";
+      $("detail-customer-mobile").textContent = (d.customer && d.customer.mobile) || "—";
+      $("detail-customer-email").textContent = (d.customer && d.customer.email) || "—";
+      $("detail-application-data").textContent = d.applicationData ? JSON.stringify(d.applicationData, null, 2) : "{ }";
+      // documents
+      const docTable = $("detail-documents-table");
+      docTable.replaceChildren();
+      (d.documents || []).forEach(doc => {
+        const r = document.createElement("tr");
+        appendCell(r, doc.documentType || "—");
+        appendCell(r, doc.fileName || "—");
+        appendCell(r, doc.declaredMimeType || "—");
+        appendCell(r, doc.declaredSizeBytes != null ? String(doc.declaredSizeBytes) : "—");
+        appendCell(r, doc.documentStatus || "—");
+        docTable.append(r);
+      });
+      if (!(d.documents || []).length) docTable.append(emptyRow(5, "No documents."));
+      // validation result
+      const vr = d.validationResult;
+      if (vr) {
+        $("detail-total-checks").textContent = vr.totalChecks ?? "—";
+        $("detail-passed-checks").textContent = vr.passedChecks ?? "—";
+        $("detail-failed-checks").textContent = vr.failedChecks ?? "—";
+        $("detail-validated-at-2").textContent = vr.validatedAt ? new Date(vr.validatedAt).toLocaleString() : "—";
+        const errTable = $("detail-validation-errors-table");
+        errTable.replaceChildren();
+        (vr.errors || []).forEach(e => {
+          const r = document.createElement("tr");
+          appendCell(r, e.field || "—");
+          appendCell(r, e.code || "—");
+          appendCell(r, e.message || "—");
+          appendCell(r, e.rejectedValue != null ? String(e.rejectedValue) : "—");
+          errTable.append(r);
+        });
+        if (!(vr.errors || []).length) errTable.append(emptyRow(4, "No validation errors."));
+      } else {
+        $("detail-total-checks").textContent = "—";
+        $("detail-passed-checks").textContent = "—";
+        $("detail-failed-checks").textContent = "—";
+        $("detail-validated-at-2").textContent = "—";
+        $("detail-validation-errors-table").replaceChildren();
+        $("detail-validation-errors-table").append(emptyRow(4, "No validation result."));
+      }
+      loading.classList.add("hidden");
+      detail.classList.remove("hidden");
+    } catch (error) {
+      loading.classList.add("hidden");
+      showError(error);
+    }
+  }
+
+  // ─── Schemas page ───
+
+  async function loadSchemas() {
+    const table = $("schemas-table");
+    table.replaceChildren();
+    const query = new URLSearchParams({ page: String(state.schemaPage), size: "10", sortBy: "createdAt", sortDir: "DESC" });
+    const search = $("schema-search").value.trim();
+    const productType = $("schema-product-filter").value;
+    const active = $("schema-active-filter").value;
+    if (search) query.set("search", search);
+    if (productType) query.set("productType", productType);
+    if (active) query.set("active", active);
+    try {
+      const result = await request(`/api/v1/admin/schemas?${query}`);
+      (result.records || []).forEach(schema => table.append(schemaRow(schema)));
+      if (!result.records?.length) table.append(emptyRow(6, "No schemas match these filters."));
+      state.schemaPages = result.totalPages || 0;
+      $("schemas-count").textContent = `${result.totalRecords ?? 0} schema${result.totalRecords === 1 ? "" : "s"} · Page ${state.schemaPage + 1}${state.schemaPages ? ` of ${state.schemaPages}` : ""}`;
+      $("schemas-prev").disabled = state.schemaPage <= 0;
+      $("schemas-next").disabled = state.schemaPages === 0 || state.schemaPage >= state.schemaPages - 1;
+    } catch (error) {
+      table.append(emptyRow(6, error.message));
+      $("schemas-count").textContent = "Could not load schemas";
+      showError(error);
+    }
+  }
+
+  function schemaRow(s) {
+    const row = document.createElement("tr");
+    appendCell(row, s.schemaName || "—");
+    appendCell(row, s.productType || "—");
+    appendCell(row, s.schemaVersion || "—");
+    const scope = (s.insurerId || s.partnerId) ? "Scoped" : "Global";
+    appendCell(row, scope);
+    appendCell(row, statusCell(s.active ? "ACTIVE" : "INACTIVE"));
+    const actions = node("div", "row-actions");
+    addAction(actions, "Details", "schema-details", s.id);
+    appendCell(row, actions);
+    return row;
+  }
+
+  async function loadSchemaDetail() {
+    if (!state.schemaId) return;
+    const panel = $("schema-detail-panel");
+    panel.classList.add("hidden");
+    try {
+      const schema = await request(`/api/v1/admin/schemas/${encodeURIComponent(state.schemaId)}`);
+      $("schema-detail-header").innerHTML = `
+        <div>
+          <div style="font-size:11px;font-weight:500;color:var(--muted-foreground);text-transform:uppercase">Schema · ${schema.schemaVersion}</div>
+          <div style="font-size:15px;font-weight:600">${schema.schemaName || "—"}</div>
+        </div>
+        <div style="text-align:right">
+          <span class="status-pill ${schema.active ? "validated" : "received"}">${schema.active ? "Active" : "Inactive"}</span>
+        </div>
+      `;
+      // field rules
+      const frResult = await request(`/api/v1/admin/schemas/${encodeURIComponent(state.schemaId)}/rules`);
+      const ft = $("schema-field-rules-table");
+      ft.replaceChildren();
+      (frResult.data || []).forEach(r => {
+        const tr = document.createElement("tr");
+        appendCell(tr, r.fieldPath || "—");
+        appendCell(tr, r.displayName || "—");
+        appendCell(tr, r.dataType || "—");
+        appendCell(tr, r.required ? "Yes" : "No");
+        appendCell(tr, r.maxLength != null ? String(r.maxLength) : "—");
+        appendCell(tr, r.errorMessage || "—");
+        ft.append(tr);
+      });
+      if (!(frResult.data || []).length) ft.append(emptyRow(6, "No field rules."));
+      // document rules
+      const drResult = await request(`/api/v1/admin/schemas/${encodeURIComponent(state.schemaId)}/document-rules`);
+      const dt = $("schema-document-rules-table");
+      dt.replaceChildren();
+      (drResult.data || []).forEach(r => {
+        const tr = document.createElement("tr");
+        appendCell(tr, r.documentType || "—");
+        appendCell(tr, r.required ? "Yes" : "No");
+        appendCell(tr, r.allowedMimeTypes || "—");
+        appendCell(tr, String(r.maxSizeMb ?? "—"));
+        appendCell(tr, r.description || "—");
+        dt.append(tr);
+      });
+      if (!(drResult.data || []).length) dt.append(emptyRow(5, "No document rules."));
+      panel.classList.remove("hidden");
+    } catch (error) {
+      showError(error);
+    }
+  }
+
+  async function createSchema() {
+    const productType = $("create-schema-product-type").value;
+    const schemaVersion = $("create-schema-version").value.trim();
+    const schemaName = $("create-schema-name").value.trim();
+    const active = $("create-schema-active").checked;
+    if (!schemaVersion || !schemaName) {
+      showToast("Schema version and name are required.", "error");
+      return;
+    }
+    const payload = { productType, schemaVersion, schemaName, active };
+    try {
+      const result = await request("/api/v1/admin/schemas", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      showToast("Schema created.");
+      $("create-schema-version").value = "";
+      $("create-schema-name").value = "";
+      $("schema-form-error").classList.add("hidden");
+      await loadSchemas();
+    } catch (error) {
+      const box = $("schema-form-error");
+      box.textContent = error.message || "Failed to create schema.";
+      box.classList.remove("hidden");
     }
   }
 
@@ -670,6 +955,13 @@
         const result = await request(`/api/v1/admin/insurers/${esc(id)}`);
         showResult($("insurer-lookup-result"), result);
         $("insurer-lookup-result").scrollIntoView({ behavior: "smooth", block: "center" });
+      } else if (action === "submission-details") {
+        state.submissionId = id;
+        setPage("submission-detail");
+      } else if (action === "schema-details") {
+        state.schemaId = id;
+        loadSchemaDetail();
+        $("schema-detail-panel").classList.remove("hidden");
       } else if (action === "activate-insurer" || action === "deactivate-insurer") {
         await request(`/api/v1/admin/insurers/${esc(id)}/${action.replace("-insurer", "")}`, { method: "PUT" });
         showToast(`Insurer ${action.startsWith("activate") ? "activated" : "deactivated"}.`);
@@ -689,6 +981,8 @@
   function wireEvents() {
     document.querySelectorAll(".nav-link").forEach(link => link.addEventListener("click", () => setPage(link.dataset.page)));
     document.querySelectorAll("[data-navigate]").forEach(button => button.addEventListener("click", () => setPage(button.dataset.navigate)));
+    $("mobile-menu-toggle").addEventListener("click", toggleMobileMenu);
+    $("mobile-menu-overlay").addEventListener("click", toggleMobileMenu);
     $("refresh-health").addEventListener("click", loadHealth);
     $("open-create-partner").addEventListener("click", () => openPartnerForm());
     $("partner-form").addEventListener("submit", savePartner);
@@ -718,6 +1012,7 @@
     $("insurers-table").addEventListener("click", handleTableAction);
     $("clients-table").addEventListener("click", handleTableAction);
     $("mappings-table").addEventListener("click", handleTableAction);
+    $("submissions-table").addEventListener("click", handleTableAction);
     $("create-mapping").addEventListener("click", createMapping);
     $("close-mappings").addEventListener("click", () => $("partner-mappings-panel").classList.add("hidden"));
     $("client-partner-select").addEventListener("change", loadClients);
@@ -736,6 +1031,36 @@
         showToast("Clipboard access unavailable. Select and copy the token.", "error");
       }
     });
+
+    // Submissions page
+    $("load-submissions").addEventListener("click", () => { state.submissionPage = 0; loadSubmissions(); });
+    $("submission-search").addEventListener("input", () => {
+      window.clearTimeout(state.partnerSearchTimer);
+      state.submissionSearchTimer = window.setTimeout(() => { state.submissionPage = 0; loadSubmissions(); }, 280);
+    });
+    $("submission-status-filter").addEventListener("change", () => { state.submissionPage = 0; loadSubmissions(); });
+    $("submission-product-filter").addEventListener("change", () => { state.submissionPage = 0; loadSubmissions(); });
+    $("submission-insurer-filter").addEventListener("change", () => { state.submissionPage = 0; loadSubmissions(); });
+    $("back-to-submissions").addEventListener("click", () => setPage("submissions"));
+
+    // Schemas page
+    $("load-schemas").addEventListener("click", () => { state.schemaPage = 0; loadSchemas(); });
+    $("schema-search").addEventListener("input", () => {
+      window.clearTimeout(state.partnerSearchTimer);
+      state.schemaSearchTimer = window.setTimeout(() => { state.schemaPage = 0; loadSchemas(); }, 280);
+    });
+    $("schema-product-filter").addEventListener("change", () => { state.schemaPage = 0; loadSchemas(); });
+    $("schema-active-filter").addEventListener("change", () => { state.schemaPage = 0; loadSchemas(); });
+    $("schemas-prev").addEventListener("click", () => { state.schemaPage = Math.max(0, state.schemaPage - 1); loadSchemas(); });
+    $("schemas-next").addEventListener("click", () => { state.schemaPage += 1; loadSchemas(); });
+    $("add-field-rule").addEventListener("click", () => setPage("schema-field-rule-form"));
+    $("add-document-rule").addEventListener("click", () => setPage("schema-document-rule-form"));
+    $("close-schema-detail").addEventListener("click", () => {
+      $("schema-detail-panel").classList.add("hidden");
+      state.schemaId = null;
+      setPage("schemas");
+    });
+    $("create-schema-save").addEventListener("click", createSchema);
   }
 
   initTheme();

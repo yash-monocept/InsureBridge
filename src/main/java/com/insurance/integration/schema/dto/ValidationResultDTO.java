@@ -28,13 +28,13 @@ public class ValidationResultDTO {
             allowableValues = {"VALIDATED", "VALIDATION_FAILED"})
     private String validationStatus;
 
-    @Schema(description = "Total number of checks performed", example = 8)
+    @Schema(description = "Total number of checks performed", example = "8")
     private int totalChecks;
 
-    @Schema(description = "Number of checks that passed", example = 6)
+    @Schema(description = "Number of checks that passed", example = "6")
     private int passedChecks;
 
-    @Schema(description = "Number of checks that failed", example = 2)
+    @Schema(description = "Number of checks that failed", example = "2")
     private int failedChecks;
 
     @Schema(description = "Field-level validation errors")

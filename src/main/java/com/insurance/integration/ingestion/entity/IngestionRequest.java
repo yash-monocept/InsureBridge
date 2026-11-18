@@ -2,6 +2,8 @@ package com.insurance.integration.ingestion.entity;
 
 import com.insurance.integration.common.entity.BaseEntity;
 import com.insurance.integration.common.enums.IngestionStatus;
+import jakarta.persistence.Access;
+import jakarta.persistence.AccessType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -16,7 +18,6 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.UUID;
  * {@link IngestionDocument} and is never returned in API responses or written to logs.</p>
  */
 @Entity
+@Access(AccessType.FIELD)
 @Table(name = "ingestion_requests")
 @Getter
 @Setter
@@ -51,10 +53,12 @@ public class IngestionRequest extends BaseEntity {
 
     /** Authenticated partner that submitted the request. */
     @Column(name = "partner_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID partnerId;
 
     /** Insurer the submission is addressed to. */
     @Column(name = "insurer_id", nullable = false)
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID insurerId;
 
     /** Insurance product type (e.g. MOTOR_INSURANCE, TRAVEL_INSURANCE). */
@@ -63,6 +67,7 @@ public class IngestionRequest extends BaseEntity {
 
     /** Schema version used to validate this submission (nullable until validation runs). */
     @Column(name = "schema_id")
+    @JdbcTypeCode(SqlTypes.UUID)
     private UUID schemaId;
 
     /** Current request-level processing status. */
@@ -72,25 +77,21 @@ public class IngestionRequest extends BaseEntity {
     private IngestionStatus status = IngestionStatus.RECEIVED;
 
     /** Customer information submitted by the partner (serialised JSON). */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "customer_data", columnDefinition = "JSONB", nullable = false)
+    @Column(name = "customer_data", nullable = false, length = 4000)
     @Builder.Default
     private String customerData = "{}";
 
     /** Product-specific application data (serialised JSON, product-structure agnostic). */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "product_data", columnDefinition = "JSONB", nullable = false)
+    @Column(name = "product_data", nullable = false, length = 4000)
     @Builder.Default
     private String productData = "{}";
 
     /** Arbitrary submission metadata (serialised JSON). */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "metadata", columnDefinition = "JSONB")
+    @Column(name = "metadata", length = 4000)
     private String metadata;
 
     /** Structured validation output produced by Module 4 (serialised JSON). */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "validation_result", columnDefinition = "JSONB")
+    @Column(name = "validation_result", length = 4000)
     private String validationResult;
 
     /** Number of failed validation checks, denormalised for fast filtering. */

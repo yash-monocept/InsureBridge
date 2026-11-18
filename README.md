@@ -145,8 +145,8 @@ src/main/java/com/insurance/integration/
 ├── config/          # Spring, Security, AWS, Swagger config
 ├── security/        # OAuth, JWT, filters
 ├── partner/         # Partner and insurer management
-├── ingestion/       # Request ingestion
-├── schema/          # Schema and tag validation engine
+├── ingestion/       # Request ingestion (Module 3)
+├── schema/          # Schema and tag validation engine (Module 4)
 ├── validation/      # Business validation
 ├── document/        # Document file validation
 ├── storage/         # AWS S3 source and destination
@@ -169,42 +169,46 @@ scripts/             # Utility scripts
 |---|---------|
 | 01 | Project Overview |
 | 02 | Requirements Analysis |
-| 03 | Requirements Traceability Matrix |
-| 04 | System Architecture |
-| 05 | Module Architecture |
+| 03 | Module 3 — Request Ingestion |
+| 04 | Module 4 — Schema & Tag Validation |
+| 05 | API Reference |
 | 06 | Database Design |
-| 07 | Partner Authentication (Module 2) |
-| 08 | API Documentation |
-| 09 | Partner Integration Guide |
-| 10 | AWS Architecture |
-| 11 | S3 Document Transfer Workflow |
-| 12 | Validation Engine |
-| 13 | Asynchronous Processing |
-| 14 | Security Architecture |
-| 15 | Error Handling |
-| 16 | Testing Strategy |
-| 17 | Test Execution Report |
-| 18 | Deployment Guide |
-| 19 | Environment Configuration |
-| 20 | Troubleshooting |
-| 21 | Final Project Report |
+| 07 | Validation Engine |
+| 08 | Frontend Architecture |
+| 09 | UI Design System |
+| 10 | Partner Authentication (Module 2) |
+| 11 | API Documentation |
+| 12 | Partner Integration Guide |
+| 13 | AWS Architecture |
+| 14 | S3 Document Transfer Workflow |
+| 15 | Asynchronous Processing |
+| 16 | Security Architecture |
+| 17 | Error Handling |
+| 18 | Testing Strategy |
+| 19 | Test Execution Report |
+| 20 | Deployment Guide |
+| 21 | Environment Configuration |
+| 22 | Troubleshooting |
+| 23 | Final Project Report |
 
 ---
 
 ## Key Partner Integration Flow
 
 ```
-Partner → POST /api/v1/partner/insurance/submit
-        ← 202 Accepted + ingestionRequestId
+Partner → POST /api/v1/partner/insurance/submissions
+         ← 201 Created + submissionId + status (RECEIVED / VALIDATED / VALIDATION_FAILED)
 
-Partner → GET /api/v1/partner/status/{ingestionRequestId}
-        ← Current processing status
+Module 4 (schema validation) runs automatically on ingestion and updates the status.
 
-System asynchronously:
-  1. Fetches documents from partner S3
-  2. Validates documents
-  3. Uploads to insurer S3
-  4. Notifies partner via webhook/SNS
+Partner → GET /api/v1/partner/insurance/submissions/{submissionId}
+         ← Submission detail (overview, partner, insurer, customer, documents, validation)
+
+Partner → GET /api/v1/partner/insurance/submissions/{submissionId}/validation
+         ← Structured field-level validation result
+
+Admin → GET /api/v1/partner/insurance/submissions/admin/all   (all submissions)
+Admin → POST /api/v1/admin/insurance/submissions/{id}/validate (re-trigger validation)
 ```
 
 ---
